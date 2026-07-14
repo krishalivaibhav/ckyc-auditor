@@ -20,7 +20,8 @@ import csv, re, unicodedata
 from pathlib import Path
 from collections import defaultdict
 
-OUT = Path("/mnt/user-data/outputs")
+ROOT = Path(__file__).resolve().parents[1]
+DATA = ROOT / "data"
 HON = re.compile(r"^(shri|shrimati|smt|mr|mrs|ms|dr|prof|sh|md|mohd)\.?\s+", re.I)
 
 TIER_RANK = {"NONE": 0, "EDD_LITE": 1, "EDD": 2, "HIGH": 3, "CRITICAL": 4}
@@ -37,8 +38,8 @@ def norm(s):
 class Watchlist:
     """The canonical reference side. Real data, never noisy."""
 
-    def __init__(self, path=OUT / "watchlist_canonical.csv"):
-        self.rows = list(csv.DictReader(open(path)))
+    def __init__(self, path=DATA / "watchlist_canonical.csv"):
+        self.rows = list(csv.DictReader(open(path, encoding="utf-8")))
         self.by_pan = {}
         self.by_name = defaultdict(list)     # normalised full name -> rows
         self.by_alias = defaultdict(list)    # normalised alias     -> rows
@@ -80,8 +81,8 @@ def baseline_screener(cust, wl):
 
 # ---------------------------------------------------------------- metrics
 def evaluate(screener, cohort, wl, label):
-    cust = {r["client_id"]: r for r in csv.DictReader(open(OUT / f"customers_{cohort}.csv"))}
-    truth = list(csv.DictReader(open(OUT / f"ground_truth_{cohort}.csv")))
+    cust = {r["client_id"]: r for r in csv.DictReader(open(DATA / f"customers_{cohort}.csv", encoding="utf-8"))}
+    truth = list(csv.DictReader(open(DATA / f"ground_truth_{cohort}.csv", encoding="utf-8")))
 
     tp = fp = fn = tn = 0
     per_bucket = defaultdict(lambda: {"n": 0, "fired": 0, "correct": 0})

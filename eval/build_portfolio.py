@@ -26,8 +26,9 @@ from datetime import date, timedelta
 from collections import Counter
 
 SEED = 20260714
-UP = Path("/mnt/user-data/uploads")
-OUT = Path("/mnt/user-data/outputs")
+ROOT = Path(__file__).resolve().parents[1]
+UP = ROOT / "data"
+OUT = ROOT / "data"
 OUT.mkdir(parents=True, exist_ok=True)
 
 STRESS_N = 2_000
