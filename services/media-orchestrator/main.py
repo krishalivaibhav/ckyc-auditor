@@ -68,3 +68,25 @@ async def process_verdict(verdict: ResolutionVerdict):
         return risk_event
     else:
         raise HTTPException(status_code=200, detail="Verdict processed but no risk event triggered.")
+
+from pydantic import BaseModel
+
+class ScanFrequencyUpdate(BaseModel):
+    minutes: int
+
+@app.post("/update-frequency")
+async def update_frequency(freq: ScanFrequencyUpdate):
+    """
+    Dynamically update the background scanning frequency without restarting the server.
+    """
+    if freq.minutes <= 0:
+        raise HTTPException(status_code=400, detail="Minutes must be greater than 0")
+        
+    scheduler.reschedule_job("gdelt_poll_job", trigger="interval", minutes=freq.minutes)
+    
+    # Update the global variable just to keep it in sync for any subsequent reads
+    global SCAN_FREQUENCY_MINUTES
+    SCAN_FREQUENCY_MINUTES = freq.minutes
+    
+    print(f"[CONFIG] Background poller frequency updated dynamically to {freq.minutes} minutes.")
+    return {"message": f"Scan frequency dynamically updated to {freq.minutes} minutes."}
