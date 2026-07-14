@@ -1,199 +1,112 @@
-﻿# Challenge 3 — Continuous KYC Autonomous Auditor
+# TechMKYC — Continuous KYC Autonomous Auditor
 
-## Problem Statement
+Built for Code by Tech Mahindra — Challenge 3: Continuous KYC Autonomous Auditor.
 
-Know-Your-Customer (KYC) onboarding and periodic refreshes are slow, expensive, and reactive. Build an autonomous Continuous KYC agent network that monitors high-risk corporate accounts in near real time, using adverse media, sanctions lists, and risk signals to generate explainable risk assessments and draft Suspicious Activity Reports (SARs).
+An agent network that continuously monitors high-risk corporate accounts against sanctions/PEP lists and adverse media, resolves entity name collisions against verified government identifiers, and drafts human-reviewable SAR/STR reports with a full audit trail.
 
----
+## Architecture
 
-## Datasets
-
-| # | Dataset | Format | Size | License | Credential | Source |
-|---|---------|--------|------|---------|-----------|--------|
-| 1 | **Synthetic KYC & Transaction Risk Dataset** | CSV / XLSX | ~5–10 MB | Apache 2.0 | Kaggle | [Kaggle](https://www.kaggle.com/datasets/berkanoztas/synthetic-kyc-transaction-risk-dataset) |
-| 2 | **Anti Money Laundering Transaction Data (SAML-D)** | CSV | ~500 MB–1 GB | CDLA-Sharing-1.0 | Kaggle | [Kaggle](https://www.kaggle.com/datasets/berkanoztas/synthetic-transaction-monitoring-dataset-aml) |
-| 3 | **OpenSanctions** (100+ gov sanction lists) | CSV / JSON | ~500 MB | CC0 / ODbL | ❌ None | [OpenSanctions](https://www.opensanctions.org/datasets/default/) |
-| 4 | **OFAC SDN List** (US Treasury) | CSV | ~5 MB | Public Domain | ❌ None | [US Treasury](https://www.treasury.gov/ofac/downloads/sdn.csv) |
-| 5 | **PrivacyQA** | JSON | 5 MB | CC-BY 4.0 | ❌ None | [HuggingFace](https://huggingface.co/datasets/allenai/privacy_qa) |
-| 6 | **GDPR Full Text** | JSON | <1 MB | Public Domain | ❌ None | [GitHub](https://github.com/nickmvincent/gdpr_text) |
-| 7 | **OPP-115 Privacy Policies** | JSON / CSV | ~10 MB | CC-BY 4.0 | ❌ None | [GitHub](https://github.com/citp/privacy-policy-annotated) |
-
-**Total: ~1,020–1,520 MB**
-
-> **Kaggle API required** for datasets 1 and 2. See [SETUP.md](../SETUP.md#step-5--configure-kaggle-api) for setup instructions.
-
----
-
-## Dataset Details
-
-### 1. Synthetic KYC & Transaction Risk Dataset
-
-**Kaggle:** https://www.kaggle.com/datasets/berkanoztas/synthetic-kyc-transaction-risk-dataset
-**License:** Apache 2.0 — free to use, modify, and distribute
-
-Synthetic corporate client profiles enriched with FATF/OFAC risk indicators, PEP flags, sector-based risk, and transaction anomaly signals. Designed specifically for KYC/AML compliance modeling.
-
-**Key Fields:**
-
-| Field | Description |
-|-------|-------------|
-| `client_id` | Unique client identifier |
-| `client_name` | Synthetic company name |
-| `client_type` | Corporate / Individual / Financial Institution |
-| `country` | Primary jurisdiction |
-| `sector` | Industry sector (e.g., Real Estate, Finance, Mining) |
-| `sector_risk` | Sector-level risk score (Low/Medium/High) |
-| `pep_flag` | Politically Exposed Person indicator (0/1) |
-| `sanctions_flag` | Directly sanctioned entity indicator (0/1) |
-| `fatf_country_flag` | FATF blacklist/greylist country indicator |
-
-**Use cases:**
-- Train entity risk scoring models
-- Build PEP/sanctions screening workflows
-- Simulate KYC onboarding risk assessment
-
-```python
-import pandas as pd
-
-df = pd.read_csv("data/kyc_profiles/synthetic_kyc_dataset.csv")
-print(f"Total clients: {len(df):,}")
-print(f"PEP clients: {df['pep_flag'].sum():,}")
-print(f"Sanctioned: {df['sanctions_flag'].sum():,}")
-print(f"FATF flagged: {df['fatf_country_flag'].sum():,}")
-
-# High-risk clients
-high_risk = df[(df['pep_flag']==1) | (df['sanctions_flag']==1) | (df['sector_risk']=='High')]
-print(f"\nHigh-risk clients: {len(high_risk):,}")
-print(high_risk[['client_id','client_name','country','sector','sector_risk','pep_flag','sanctions_flag']].head())
+```
+Sanctions/PEP feed ─┐
+Adverse media feed  ├─▶ Entity resolution & scoring ─▶ Investigation agent ─▶ SAR/STR draft ─▶ Human review (Flutter)
+Internal KYC data  ─┘                                                                        └─▶ Audit trail (SQL)
 ```
 
----
+Five services, one per team member. See each service's `AGENTS.md` for full task scope and contracts.
 
-### 2. Anti Money Laundering Transaction Data (SAML-D)
+| # | Owner | Service | Folder |
+|---|---|---|---|
+| 1 | _name_ | Sanctions/PEP data agent | `services/sanctions-agent` |
+| 2 | _name_ | Entity disambiguation & scoring | `services/entity-resolution` |
+| 3 | _name_ | Adverse media + orchestration | `services/media-orchestrator` |
+| 4 | _name_ | Investigation agent + draft generation | `services/investigation-agent` |
+| 5 | _name_ | Backend, audit trail + Flutter dashboard | `services/backend-dashboard` |
 
-**Kaggle:** https://www.kaggle.com/datasets/berkanoztas/synthetic-transaction-monitoring-dataset-aml
-**License:** CDLA-Sharing-1.0
+Fill in names above once assigned — every `AGENTS.md` references this table.
 
-Large-scale synthetic AML transaction dataset with ~9.5 million transactions and 28 typologies (11 normal, 17 suspicious). Built in collaboration with AML specialists. Mirrors real-world class imbalance (~0.1% suspicious).
+## Repo structure
 
-**Key Fields:**
-
-| Field | Description |
-|-------|-------------|
-| `Date` | Transaction date/time |
-| `Sender_account` | Sending account identifier |
-| `Receiver_account` | Receiving account identifier |
-| `Amount` | Transaction amount |
-| `Sender_bank_location` | Country of the sending bank |
-| `Receiver_bank_location` | Country of the receiving bank |
-| `Payment_type` | Wire / SWIFT / ACH / Crypto / etc. |
-| `Is_laundering` | Label — 0=Normal, 1=Suspicious |
-| `Typology` | One of 28 transaction pattern types |
-
-**Use cases:**
-- Train transaction monitoring models (graph-based, time-series, tabular)
-- Detect structuring, layering, and integration patterns
-- Build risk exposure timeline for SAR drafting
-
-```python
-import pandas as pd
-
-# Load a sample (full dataset is ~500MB–1GB)
-df = pd.read_csv("data/aml_transactions/aml_transactions.csv", nrows=100_000)
-print(f"Shape: {df.shape}")
-print(f"Suspicious transactions: {df['Is_laundering'].sum():,} ({df['Is_laundering'].mean()*100:.2f}%)")
-print(f"\nTypology distribution:")
-print(df[df['Is_laundering']==1]['Typology'].value_counts().head(10))
-
-# Cross-border transactions
-cross_border = df[df['Sender_bank_location'] != df['Receiver_bank_location']]
-print(f"\nCross-border transactions: {len(cross_border):,}")
+```
+TechMKYC/
+├── README.md                    ← this file
+├── docker-compose.yml           ← brings up all 5 services + Postgres, owned by Person 5
+├── .env.example
+├── docs/
+│   └── schema.md                ← THE shared contract. Read before writing any integration code.
+└── services/
+    ├── sanctions-agent/         ← Person 1
+    ├── entity-resolution/       ← Person 2
+    ├── media-orchestrator/      ← Person 3
+    ├── investigation-agent/     ← Person 4
+    └── backend-dashboard/       ← Person 5 (api/ + app/ for Flutter)
 ```
 
----
+Each service folder is self-contained: its own `AGENTS.md`, its own `Dockerfile`, its own tests. This isn't arbitrary — it's the conflict-avoidance strategy (see below).
 
-### 3. OpenSanctions — 100+ Government Sanction Lists
-
-**Source:** https://www.opensanctions.org/datasets/default/
-**License:** CC0 / ODbL — freely downloadable, no login
-
-Aggregates OFAC, UN, EU, UK, and 100+ other government sanctions lists into a single machine-readable dataset. Used in production by compliance technology vendors.
+## Setup
 
 ```bash
-# Download (no login needed)
-wget https://data.opensanctions.org/datasets/latest/default/targets.simple.csv \
-     -O data/sanctions/opensanctions_targets.csv
+git clone https://github.com/Samaksh912/TechMKYC.git
+cd TechMKYC
+cp .env.example .env          # fill in API keys: OPENSANCTIONS, GDELT, MCA, LLM provider
+docker compose up --build     # brings up all services once each person has pushed
 ```
 
-**Key Fields:** `entity_id`, `name`, `aliases`, `dob`, `nationality`, `sanction_program`, `source_list`
+Each service can also run standalone during development — see the `AGENTS.md` in that folder for its own run command.
 
----
 
-### 4. OFAC SDN List — US Treasury
+## Git workflow — read this before your first commit
 
-**Source:** https://www.treasury.gov/ofac/downloads/sdn.csv
-**License:** Public Domain
+We're 5 people editing one repo for 2 days. The plan below exists to stop pushes from stepping on each other, and to keep `main` a live, trustworthy picture of the whole system — not a pile of untouched branches that collide on the last night.
 
-The most globally enforced sanctions list. All financial institutions must screen against this.
+**1. You own your folder, nobody else's.**
+Work only inside your `services/<your-service>/` folder. If you need to change something outside it — especially `docs/schema.md` — post in the team chat first. Silent edits to shared files are the #1 cause of conflicts.
 
+**2. One branch per person, named after your service.**
 ```bash
-wget https://www.treasury.gov/ofac/downloads/sdn.csv -O data/sanctions/ofac_sdn.csv
+git checkout -b feature/sanctions-agent      # Person 1
+git checkout -b feature/entity-resolution    # Person 2
+git checkout -b feature/media-orchestrator   # Person 3
+git checkout -b feature/investigation-agent  # Person 4
+git checkout -b feature/backend-dashboard    # Person 5
 ```
+Never commit straight to `main`.
 
----
-
-### 5–7. Regulatory Compliance Datasets
-
-| Dataset | Use in Challenge |
-|---------|-----------------|
-| **PrivacyQA** | Understanding regulatory Q&A for SAR reasoning |
-| **GDPR Full Text** | Regulatory obligation extraction |
-| **OPP-115** | Privacy policy annotation and risk categorization |
-
----
-
-## Data Folder Structure
-
-```
-challenge-3-kyc-autonomous-auditor/data/
-├── kyc_profiles/
-│   └── synthetic_kyc_dataset.csv    ← Client profiles with risk flags
-├── aml_transactions/
-│   └── aml_transactions.csv         ← 9.5M+ labeled transactions (SAML-D)
-├── sanctions/
-│   ├── opensanctions_targets.csv    ← 100+ gov sanction lists
-│   └── ofac_sdn.csv                 ← OFAC Specially Designated Nationals
-├── privacy_qa/                      ← Regulatory Q&A pairs
-├── gdpr_text/
-│   └── gdpr.json                    ← Full GDPR structured text
-└── opp115/                          ← Annotated privacy policies
-```
-
----
-
-## Quick Start
-
+**3. Commit to your own branch periodically — every 30–60 minutes, not once at the end of the day.**
+Work-in-progress commits are fine, even if the feature isn't finished. This is your recovery point if something breaks, and it keeps every individual diff small.
 ```bash
-# 1. Set up Kaggle API (required for datasets 1 & 2)
-# See SETUP.md for instructions
-
-# 2. Run the downloader
-python download.py
-
-# 3. Install dependencies
-pip install pandas numpy scikit-learn
+git add .
+git commit -m "wip: candidate scoring for name+DOB match"
+git push origin feature/sanctions-agent
 ```
 
----
+**4. Merge your work into `main` periodically too — don't hoard your branch until it's "done."**
+A branch that only lands on day 2 night is where the worst conflicts happen, and nobody else can build against your work until it's on `main`. Whenever you hit a stable checkpoint — an endpoint that returns the right shape, even with rough logic inside — open a PR and merge it in.
+- Merge to `main` at least every 2–3 hours, or any time you finish an item on your Definition of Done list.
+- It's fine to merge something incomplete or partially stubbed, as long as it doesn't break `docker compose up` for everyone else. Working-but-rough beats polished-but-unmerged.
 
-## Suggested Build Path for Participants
+**5. Pull `main` periodically to see the current state of everyone else's work.**
+Before starting each new work block:
+```bash
+git checkout main
+git pull origin main
+git checkout feature/<your-service>
+git rebase main
+```
+This is how you find out what teammates have shipped without waiting for a stand-up — and it surfaces conflicts while they're small, not eight hours later.
 
-1. **Entity screening** → Cross-reference `kyc_profiles` against `opensanctions_targets` + `ofac_sdn`
-2. **Transaction monitoring** → Train an AML classifier on SAML-D with entity risk context
-3. **Risk timeline** → Join KYC profile changes with transaction anomaly spikes
-4. **SAR drafting** → Use GDPR + PrivacyQA for regulatory language generation
-5. **Human review workflow** → Build audit trail with evidence, AI decisions, and reviewer actions
+**6. `docs/schema.md` is the one shared file. Treat changes to it as an announcement, not a commit.**
+If you need to change a field in the shared contract, message the group, get a thumbs up, then push — and ping everyone to pull `main` immediately after, since it likely breaks their in-progress code otherwise.
 
----
+**7. Checkpoint tags at milestones.**
+At the end of day 1 and right before the final demo, tag `main` at a known-good state so you can instantly roll back if a last-minute merge breaks something:
+```bash
+git tag day1-checkpoint
+git push origin day1-checkpoint
+# to roll back: git checkout day1-checkpoint
+```
 
-*Tech Mahindra CODE Hackathon — Challenge 3 Dataset*
+**8. Person 5 is merge coordinator.**
+Since they own `docker-compose.yml` and the integration point, PRs into `main` get merged by them (or reviewed by them before anyone self-merges) — throughout the day, not just once at the end. They should pull and run the full stack locally before merging each PR, to catch integration breaks before `main` does.
+
+**9. If you hit a conflict:** resolve it locally on your branch, never force-push over someone else's commits (`git push --force` on a shared branch is banned; `--force-with-lease` on your *own* feature branch only, if you must).
