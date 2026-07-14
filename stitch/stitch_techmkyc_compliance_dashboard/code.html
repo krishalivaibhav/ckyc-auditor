@@ -1,0 +1,318 @@
+<!DOCTYPE html><html class="h-full bg-background" lang="en"><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          keyframes: {
+            fadeIn: {
+              '0%': { opacity: '0', transform: 'translateY(10px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' }
+            }
+          },
+          animation: {
+            'fade-in': 'fadeIn 0.6s ease-out forwards'
+          },
+          "colors": {
+                  "surface-container-lowest": "#ffffff",
+                  "inverse-primary": "#b4c5ff",
+                  "secondary-fixed": "#d3e4fe",
+                  "on-error": "#ffffff",
+                  "surface-container-low": "#f2f3ff",
+                  "tertiary": "#9d3000",
+                  "primary-fixed-dim": "#b4c5ff",
+                  "on-tertiary": "#ffffff",
+                  "secondary": "#505f76",
+                  "surface-tint": "#0052dc",
+                  "surface-container-highest": "#e1e1ee",
+                  "on-surface-variant": "#424656",
+                  "outline": "#737687",
+                  "secondary-container": "#d0e1fb",
+                  "primary-fixed": "#dbe1ff",
+                  "secondary-fixed-dim": "#b7c8e1",
+                  "tertiary-container": "#c73f00",
+                  "background": "#faf8ff",
+                  "on-secondary": "#ffffff",
+                  "on-error-container": "#93000a",
+                  "primary-container": "#0061ff",
+                  "on-primary-container": "#f1f2ff",
+                  "on-background": "#191b24",
+                  "surface-container-high": "#e7e7f4",
+                  "on-secondary-fixed-variant": "#38485d",
+                  "on-tertiary-fixed-variant": "#832700",
+                  "on-surface": "#191b24",
+                  "surface": "#faf8ff",
+                  "on-secondary-fixed": "#0b1c30",
+                  "surface-variant": "#e1e1ee",
+                  "tertiary-fixed": "#ffdbd0",
+                  "on-primary-fixed": "#00174b",
+                  "on-tertiary-container": "#ffefeb",
+                  "on-primary": "#ffffff",
+                  "inverse-surface": "#2e303a",
+                  "on-primary-fixed-variant": "#003ea8",
+                  "surface-dim": "#d8d9e6",
+                  "error-container": "#ffdad6",
+                  "on-secondary-container": "#54647a",
+                  "inverse-on-surface": "#eff0fd",
+                  "surface-bright": "#faf8ff",
+                  "surface-container": "#ecedfa",
+                  "on-tertiary-fixed": "#390c00",
+                  "primary": "#004bca",
+                  "tertiary-fixed-dim": "#ffb59d",
+                  "outline-variant": "#c2c6d9",
+                  "error": "#ba1a1a"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.25rem",
+                  "lg": "0.5rem",
+                  "xl": "0.75rem",
+                  "full": "9999px"
+          },
+          "spacing": {
+                  "sm": "8px",
+                  "container-max": "1280px",
+                  "base": "4px",
+                  "gutter": "24px",
+                  "xs": "4px",
+                  "lg": "24px",
+                  "xl": "32px",
+                  "md": "16px",
+                  "margin-mobile": "16px"
+          },
+          "fontFamily": {
+                  "body-lg": [
+                          "Inter"
+                  ],
+                  "display-lg": [
+                          "Geist"
+                  ],
+                  "body-md": [
+                          "Inter"
+                  ],
+                  "headline-lg-mobile": [
+                          "Geist"
+                  ],
+                  "headline-md": [
+                          "Geist"
+                  ],
+                  "label-md": [
+                          "Geist"
+                  ],
+                  "mono-sm": [
+                          "Geist Mono"
+                  ],
+                  "headline-lg": [
+                          "Geist"
+                  ]
+          },
+          "fontSize": {
+                  "body-lg": [
+                          "16px",
+                          {
+                                  "lineHeight": "24px",
+                                  "letterSpacing": "0",
+                                  "fontWeight": "400"
+                          }
+                  ],
+                  "display-lg": [
+                          "48px",
+                          {
+                                  "lineHeight": "56px",
+                                  "letterSpacing": "-0.02em",
+                                  "fontWeight": "600"
+                          }
+                  ],
+                  "body-md": [
+                          "14px",
+                          {
+                                  "lineHeight": "20px",
+                                  "letterSpacing": "0",
+                                  "fontWeight": "400"
+                          }
+                  ],
+                  "headline-lg-mobile": [
+                          "24px",
+                          {
+                                  "lineHeight": "32px",
+                                  "letterSpacing": "-0.01em",
+                                  "fontWeight": "600"
+                          }
+                  ],
+                  "headline-md": [
+                          "20px",
+                          {
+                                  "lineHeight": "28px",
+                                  "letterSpacing": "-0.01em",
+                                  "fontWeight": "500"
+                          }
+                  ],
+                  "label-md": [
+                          "12px",
+                          {
+                                  "lineHeight": "16px",
+                                  "letterSpacing": "0.02em",
+                                  "fontWeight": "500"
+                          }
+                  ],
+                  "mono-sm": [
+                          "12px",
+                          {
+                                  "lineHeight": "16px",
+                                  "letterSpacing": "0",
+                                  "fontWeight": "400"
+                          }
+                  ],
+                  "headline-lg": [
+                          "32px",
+                          {
+                                  "lineHeight": "40px",
+                                  "letterSpacing": "-0.02em",
+                                  "fontWeight": "600"
+                          }
+                  ]
+          }
+  },
+      },
+    }
+  }catch(_e){}</script></head><body class="h-full flex items-center justify-center p-md bg-transparent font-body-md text-body-md text-surface-container-lowest relative">
+<!-- Background Canvas for Shader -->
+<canvas class="fixed inset-0 w-full h-full -z-10" id="shader-bg"></canvas>
+<!-- Main Container -->
+<main class="w-full max-w-3xl mx-auto z-10 relative px-4">
+<!-- Card -->
+<div class="bg-inverse-surface/95 backdrop-blur-sm border border-outline/30 rounded-xl shadow-2xl flex flex-col md:flex-row animate-fade-in opacity-0 overflow-hidden">
+<!-- Left Panel: Info & Animation -->
+<div class="flex-1 p-xl flex flex-col items-center justify-center text-center gap-xl border-b md:border-b-0 md:border-r border-outline/30 bg-inverse-surface/30">
+<!-- Header Section -->
+<div class="flex flex-col items-center text-center gap-sm">
+<p class="font-mono-sm text-mono-sm text-outline-variant uppercase tracking-widest">Autonomous Auditor</p>
+<h1 class="font-headline-md text-headline-md text-surface-container-lowest">Verification Required</h1>
+</div>
+<!-- Fingerprint Animation -->
+<div class="w-32 h-32 mx-auto text-outline-variant transition-opacity duration-300" id="fingerprint-container"><div class="fixed inset-0 w-full h-full" id="animated-svg-ANIMATION_10" style="display: block;"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="scan-grad" x1="0%" x2="0%" y1="0%" y2="100%"><stop offset="0%" stop-color="#0061ff" stop-opacity="0"></stop><stop offset="50%" stop-color="#0061ff" stop-opacity="0.8"></stop><stop offset="100%" stop-color="#0061ff" stop-opacity="0"></stop></linearGradient><filter id="glow"><feGaussianBlur result="coloredBlur" stdDeviation="1.5"></feGaussianBlur><feMerge><feMergeNode in="coloredBlur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter></defs><g fill="none" opacity="0.8" stroke="#0061ff" stroke-linecap="round" stroke-width="1.2"><path d="M50,30 c-8,0 -15,7 -15,15 v10"></path><path d="M30,55 c0,5 5,10 15,10 s15,-5 15,-10 v-15 c0,-15 -15,-22 -25,-22 s-25,12 -25,22 v10"></path><path d="M75,55 v-10 c0,-20 -20,-35 -45,-35 s-45,15 -45,35 v10"></path><path d="M20,60 c0,15 15,25 30,25 s30,-10 30,-25 v-10"></path><path d="M50,85 c-20,0 -35,-15 -35,-30 v-5"></path><path d="M45,50 a5,5 0 1,0 10,0 a5,5 0 1,0 -10,0"></path><path d="M40,50 a10,10 0 1,0 20,0 a10,10 0 1,0 -20,0"></path></g><g filter="url(#glow)"><rect fill="url(#scan-grad)" height="2" width="90" x="5" y="0"><animate attributeName="y" dur="3s" repeatCount="indefinite" values="10;90;10"></animate></rect></g><circle cx="50" cy="50" fill="none" opacity="0" r="40" stroke="#0061ff" stroke-width="0.5"><animate attributeName="r" begin="indefinite" dur="0.5s" fill="freeze" id="success-pulse" values="0;45"></animate><animate attributeName="opacity" begin="success-pulse.begin" dur="0.5s" fill="freeze" values="0;0.5;0"></animate></circle></svg></div></div>
+</div>
+<!-- Right Panel: Form -->
+<div class="flex-1 p-xl flex flex-col justify-center gap-xl">
+<!-- Form Section -->
+<form action="#" class="flex flex-col gap-lg" id="login-form" method="POST">
+<div class="flex flex-col gap-base">
+<label class="font-label-md text-label-md text-surface-variant" for="reviewerName">Reviewer Name</label>
+<div class="relative">
+<input class="w-full min-h-[40px] px-sm py-xs bg-[#191b24]/50 border border-outline/40 rounded-DEFAULT focus:bg-[#191b24] focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-colors font-body-md text-body-md text-surface-container-lowest placeholder-outline" id="reviewerName" name="reviewerName" placeholder="Enter your full name" required="" type="text">
+</div>
+</div>
+<button class="w-full min-h-[40px] bg-primary text-on-primary font-label-md text-label-md rounded-DEFAULT hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-inverse-surface transition-all disabled:opacity-70 disabled:cursor-not-allowed" id="submit-btn" type="submit">
+          Sign In
+        </button>
+</form>
+<!-- Footer Caption -->
+<div class="text-center pt-md border-t border-outline/30">
+<p class="font-body-md text-[13px] leading-tight text-outline-variant">
+          Your name is recorded on every review decision for audit integrity.
+        </p>
+</div>
+</div>
+</div>
+</main>
+<script>
+  // WebGL Shader Setup
+  const canvas = document.getElementById('shader-bg');
+  const gl = canvas.getContext('webgl');
+  
+  if (gl) {
+    const vertexShaderSource = `
+      attribute vec2 a_position;
+      varying vec2 v_texCoord;
+      void main() {
+        gl_Position = vec4(a_position, 0.0, 1.0);
+        v_texCoord = a_position * 0.5 + 0.5;
+      }
+    `;
+    
+    const fragmentShaderSource = `<webgl-shader src="<webgl-shader src="{{DATA:ANIMATION:ANIMATION_7}}" class=""></webgl-shader>" class=""></webgl-shader>`;
+    
+    function createShader(gl, type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      return shader;
+    }
+    
+    const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+    const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+    
+    const program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
+    gl.useProgram(program);
+    
+    const positionBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    const positions = [
+      -1.0, -1.0,
+       1.0, -1.0,
+      -1.0,  1.0,
+      -1.0,  1.0,
+       1.0, -1.0,
+       1.0,  1.0,
+    ];
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+    
+    const positionLocation = gl.getAttribLocation(program, "a_position");
+    gl.enableVertexAttribArray(positionLocation);
+    gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+    
+    const timeLocation = gl.getUniformLocation(program, "u_time");
+    const resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+    
+    function resizeCanvasToDisplaySize(canvas) {
+      const displayWidth  = window.innerWidth;
+      const displayHeight = window.innerHeight;
+      if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
+        canvas.width  = displayWidth;
+        canvas.height = displayHeight;
+      }
+    }
+    
+    function render(time) {
+      time *= 0.001;
+      resizeCanvasToDisplaySize(canvas);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.uniform1f(timeLocation, time);
+      gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  }
+
+  // Form Submission Sequence
+  document.getElementById('login-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const btn = document.getElementById('submit-btn');
+    const fingerprint = document.getElementById('fingerprint-container');
+    
+    // Disable button and update text
+    btn.disabled = true;
+    btn.textContent = 'Verifying...';
+    
+    // Trigger scanning pulse
+    fingerprint.classList.add('fingerprint-pulse', 'text-primary-fixed');
+    
+    // Wait 2 seconds for verification
+    setTimeout(() => {
+      // Trigger success state
+      btn.textContent = 'Success';
+      btn.classList.remove('bg-primary');
+      btn.classList.add('bg-green-600', 'hover:bg-green-600');
+      
+      // Trigger success glow on SVG if possible
+      const successGlows = fingerprint.querySelectorAll('circle animate');
+      successGlows.forEach(anim => anim.beginElement && anim.beginElement());
+      
+      // Simulate redirect
+      setTimeout(() => {
+        window.location.href = '#';
+      }, 1000);
+    },</script></body></html>

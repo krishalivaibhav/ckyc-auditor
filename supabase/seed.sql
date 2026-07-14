@@ -37,7 +37,7 @@ insert into public.resolution_verdicts (query_entity_id, candidate_id, verdict, 
   'Name similarity to a PEP list entry is moderate (0.66) but no DOB or nationality on the PEP record to corroborate. Insufficient anchors to confirm — route to human review.','none'),
  ('11111111-1111-1111-1111-111111111111','ofac-2201','false_positive',0.28,
   'Candidate "Meridian Trading LLC" shares only a partial name token. CIN anchor U74999MH2015PTC271234 verified against MCA — distinct legal entity in a different jurisdiction. Cleared.','CIN'),
- ('33333333-3333-3333-3333-333333333333',null,'needs_review',0.50,
+ ('33333333-3333-3333-3333-333333333333','none','needs_review',0.50,
   'No direct sanctions candidate, but sector (Mining) and jurisdiction exposure are elevated. Flagged on adverse-media signal rather than list match.','none');
 
 -- ── Risk events (§4, Person 3 output) ───────────────────────────────────────
@@ -49,22 +49,25 @@ insert into public.risk_events (entity_id, event_type, severity, detected_at, so
  ('44444444-4444-4444-4444-444444444444','adverse_media','low', now() - interval '8 days', array['https://news.example.com/okafor-mention']),
  ('77777777-7777-7777-7777-777777777777','adverse_media','medium', now() - interval '6 days', array['https://news.example.com/cedar-aml-fine']);
 
--- ── Evidence timelines (Person 4 input/output) ──────────────────────────────
-insert into public.evidence (entity_id, event_date, event, source_url, excerpt) values
- ('22222222-2222-2222-2222-222222222222', now() - interval '2 days','Added to OFAC SDN list','https://www.treasury.gov/ofac/downloads/sdn.csv','Designated under Ukraine-related sanctions program.'),
- ('22222222-2222-2222-2222-222222222222', now() - interval '1 day','Named in international corruption probe','https://news.example.com/kozlov-probe','Reportedly under investigation for cross-border laundering.'),
- ('33333333-3333-3333-3333-333333333333', now() - interval '5 days','Regulatory inquiry opened','https://news.example.com/sunrise-minerals-inquiry','Local regulator queries source of mineral export funds.'),
- ('33333333-3333-3333-3333-333333333333', now() - interval '3 days','Ultimate beneficial owner changed','https://registry.example.com/sunrise-ubo','New UBO registered in a high-risk jurisdiction.'),
- ('77777777-7777-7777-7777-777777777777', now() - interval '6 days','AML penalty reported','https://news.example.com/cedar-aml-fine','Fined for weak transaction-monitoring controls.');
-
--- ── Draft reports + citations (§5, Person 4 output) ─────────────────────────
+-- ── Draft reports (§5, Person 4 output) ──────────────────────────────────────
+-- Timeline entries now hang off the report (report_timeline.report_id), not the
+-- entity directly — an entity only gets a detailed timeline once Person 4 has
+-- filed a report on it. Cedar Real Estate (777...) has a risk_event but no
+-- report yet, so it has no report_timeline rows — that's expected, not a gap.
 insert into public.draft_reports (report_id, entity_id, summary, status) values
  ('aaaaaaaa-0000-0000-0000-000000000001','22222222-2222-2222-2222-222222222222',
   'Viktor A. Kozlov is a confirmed match against the OFAC SDN list (Ukraine-related program), corroborated by matching nationality and date of birth. Adverse media within the last 24 hours reports an active corruption investigation involving cross-border transfers. Combined sanctions and media exposure warrant filing a Suspicious Activity Report.',
-  'pending'),
+  'draft'),
  ('aaaaaaaa-0000-0000-0000-000000000002','33333333-3333-3333-3333-333333333333',
   'Sunrise Minerals & Trading shows no direct sanctions match but presents elevated risk: a regulatory inquiry into export fund sources and a recent change of ultimate beneficial owner to a high-risk jurisdiction. Recommend enhanced due diligence and human review before any transaction approval.',
-  'pending');
+  'draft');
+
+-- ── Report timeline (Person 4 output, §7 report_timeline) ───────────────────
+insert into public.report_timeline (report_id, event_date, event, source_url, excerpt) values
+ ('aaaaaaaa-0000-0000-0000-000000000001', now() - interval '2 days','Added to OFAC SDN list','https://www.treasury.gov/ofac/downloads/sdn.csv','Designated under Ukraine-related sanctions program.'),
+ ('aaaaaaaa-0000-0000-0000-000000000001', now() - interval '1 day','Named in international corruption probe','https://news.example.com/kozlov-probe','Reportedly under investigation for cross-border laundering.'),
+ ('aaaaaaaa-0000-0000-0000-000000000002', now() - interval '5 days','Regulatory inquiry opened','https://news.example.com/sunrise-minerals-inquiry','Local regulator queries source of mineral export funds.'),
+ ('aaaaaaaa-0000-0000-0000-000000000002', now() - interval '3 days','Ultimate beneficial owner changed','https://registry.example.com/sunrise-ubo','New UBO registered in a high-risk jurisdiction.');
 
 insert into public.report_citations (report_id, claim, source_url, excerpt) values
  ('aaaaaaaa-0000-0000-0000-000000000001','Confirmed match against the OFAC SDN list','https://www.treasury.gov/ofac/downloads/sdn.csv','Designated under Ukraine-related sanctions program.'),

@@ -41,42 +41,46 @@ class CitationCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(8),
-                border: Border(
-                    left: BorderSide(color: scheme.primary, width: 3)),
+            if (citation.excerpt != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border(
+                      left: BorderSide(color: scheme.primary, width: 3)),
+                ),
+                child: Text('“${citation.excerpt}”',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontStyle: FontStyle.italic,
+                        color: scheme.onSurfaceVariant)),
               ),
-              child: Text('“${citation.excerpt}”',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontStyle: FontStyle.italic,
-                      color: scheme.onSurfaceVariant)),
-            ),
-            const SizedBox(height: 8),
-            InkWell(
-              onTap: () => launchUrl(Uri.parse(citation.sourceUrl),
-                  mode: LaunchMode.externalApplication),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.open_in_new, size: 13, color: scheme.primary),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Text(citation.sourceUrl,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 12.5,
-                            color: scheme.primary,
-                            decoration: TextDecoration.underline)),
-                  ),
-                ],
+            ],
+            if (citation.sourceUrl != null) ...[
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => launchUrl(Uri.parse(citation.sourceUrl!),
+                    mode: LaunchMode.externalApplication),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.open_in_new, size: 13, color: scheme.primary),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(citation.sourceUrl!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 12.5,
+                              color: scheme.primary,
+                              decoration: TextDecoration.underline)),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

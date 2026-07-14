@@ -62,9 +62,11 @@ class Entity {
 }
 
 /// §3 Resolution verdict (Person 2 output) — the risk score + plain-English why.
+/// `candidateId` is always present (schema.md §7): 'none' when there was no
+/// direct candidate to anchor against, rather than a null value.
 class ResolutionVerdict {
   final String queryEntityId;
-  final String? candidateId;
+  final String candidateId;
   final String verdict; // confirmed_match | false_positive | needs_review
   final double confidence;
   final String explanation;
@@ -73,7 +75,7 @@ class ResolutionVerdict {
 
   const ResolutionVerdict({
     required this.queryEntityId,
-    this.candidateId,
+    required this.candidateId,
     required this.verdict,
     required this.confidence,
     required this.explanation,
@@ -84,7 +86,7 @@ class ResolutionVerdict {
   factory ResolutionVerdict.fromJson(Map<String, dynamic> j) =>
       ResolutionVerdict(
         queryEntityId: j['query_entity_id'].toString(),
-        candidateId: j['candidate_id'] as String?,
+        candidateId: (j['candidate_id'] as String?) ?? 'none',
         verdict: j['verdict'] as String,
         confidence: _double(j['confidence']),
         explanation: j['explanation'] as String,
@@ -121,27 +123,30 @@ class RiskEvent {
       );
 }
 
-/// Evidence timeline entry (Person 4 input/output)
-class Evidence {
+/// report_timeline entry (Person 4 output, schema.md §7). Scoped to a
+/// draft_report, not the entity directly — an entity only has a detailed
+/// timeline once Person 4 has filed a report on it; until then only
+/// [RiskEvent]s (entity-scoped) are known.
+class TimelineEntry {
   final String id;
-  final String entityId;
+  final String reportId;
   final DateTime eventDate;
   final String event;
   final String? sourceUrl;
   final String? excerpt;
 
-  const Evidence({
+  const TimelineEntry({
     required this.id,
-    required this.entityId,
+    required this.reportId,
     required this.eventDate,
     required this.event,
     this.sourceUrl,
     this.excerpt,
   });
 
-  factory Evidence.fromJson(Map<String, dynamic> j) => Evidence(
+  factory TimelineEntry.fromJson(Map<String, dynamic> j) => TimelineEntry(
         id: j['id'].toString(),
-        entityId: j['entity_id'].toString(),
+        reportId: j['report_id'].toString(),
         eventDate: _date(j['event_date']),
         event: j['event'] as String,
         sourceUrl: j['source_url'] as String?,
@@ -152,19 +157,19 @@ class Evidence {
 /// §5 Draft report citation — every claim must trace to one of these.
 class Citation {
   final String claim;
-  final String sourceUrl;
-  final String excerpt;
+  final String? sourceUrl;
+  final String? excerpt;
 
   const Citation({
     required this.claim,
-    required this.sourceUrl,
-    required this.excerpt,
+    this.sourceUrl,
+    this.excerpt,
   });
 
   factory Citation.fromJson(Map<String, dynamic> j) => Citation(
         claim: j['claim'] as String,
-        sourceUrl: j['source_url'] as String,
-        excerpt: j['excerpt'] as String,
+        sourceUrl: j['source_url'] as String?,
+        excerpt: j['excerpt'] as String?,
       );
 }
 
@@ -173,8 +178,9 @@ class DraftReport {
   final String reportId;
   final String entityId;
   final String summary;
-  final String status; // pending | approved | edited | rejected
+  final String status; // draft | approved | edited | rejected
   final List<Citation> citations;
+  final List<TimelineEntry> timeline;
 
   const DraftReport({
     required this.reportId,
@@ -182,15 +188,19 @@ class DraftReport {
     required this.summary,
     required this.status,
     this.citations = const [],
+    this.timeline = const [],
   });
 
   factory DraftReport.fromJson(Map<String, dynamic> j) => DraftReport(
         reportId: j['report_id'].toString(),
         entityId: j['entity_id'].toString(),
         summary: j['summary'] as String,
-        status: (j['status'] as String?) ?? 'pending',
+        status: (j['status'] as String?) ?? 'draft',
         citations: (j['report_citations'] as List? ?? const [])
             .map((c) => Citation.fromJson(c as Map<String, dynamic>))
+            .toList(),
+        timeline: (j['report_timeline'] as List? ?? const [])
+            .map((t) => TimelineEntry.fromJson(t as Map<String, dynamic>))
             .toList(),
       );
 }
@@ -232,16 +242,18 @@ class EntityDetail {
   final Entity entity;
   final ResolutionVerdict? verdict;
   final List<RiskEvent> riskEvents;
-  final List<Evidence> evidence;
   final DraftReport? report;
 
   const EntityDetail({
     required this.entity,
     this.verdict,
     this.riskEvents = const [],
-    this.evidence = const [],
     this.report,
   });
+
+  /// Detailed timeline only exists once Person 4 has filed a report — before
+  /// that, only [riskEvents] are known.
+  List<TimelineEntry> get timeline => report?.timeline ?? const [];
 
   /// Highest severity among risk events — drives the watchlist badge.
   String get topSeverity {

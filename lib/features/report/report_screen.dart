@@ -111,7 +111,7 @@ class _Report extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final r = detail.report!;
     final scheme = Theme.of(context).colorScheme;
-    final decided = r.status != 'pending';
+    final decided = r.status != 'draft';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),

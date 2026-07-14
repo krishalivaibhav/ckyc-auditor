@@ -14,7 +14,8 @@ abstract class KycRepository {
   /// Watchlist rows: entity + its verdict + risk events (for the severity badge).
   Future<List<EntityDetail>> fetchWatchlist();
 
-  /// Full detail for one entity: verdict, risk events, evidence timeline, report.
+  /// Full detail for one entity: verdict, risk events, and the filed report
+  /// (whose report_timeline carries the detailed evidence timeline, if any).
   Future<EntityDetail> fetchDetail(String entityId);
 
   /// Append-only audit trail, optionally scoped to one entity.
@@ -117,14 +118,11 @@ class SupabaseRepository implements KycRepository {
         .select()
         .eq('entity_id', entityId)
         .order('detected_at', ascending: false);
-    final evidence = await _db
-        .from('evidence')
-        .select()
-        .eq('entity_id', entityId)
-        .order('event_date', ascending: false);
+    // report_timeline is scoped to the report (schema.md §7), so it comes back
+    // nested under draft_reports rather than queried by entity_id directly.
     final reports = await _db
         .from('draft_reports')
-        .select('*, report_citations(*)')
+        .select('*, report_citations(*), report_timeline(*)')
         .eq('entity_id', entityId)
         .order('created_at', ascending: false)
         .limit(1);
@@ -135,7 +133,6 @@ class SupabaseRepository implements KycRepository {
           ? null
           : ResolutionVerdict.fromJson(verdicts.first),
       riskEvents: events.map((r) => RiskEvent.fromJson(r)).toList(),
-      evidence: evidence.map((r) => Evidence.fromJson(r)).toList(),
       report: reports.isEmpty ? null : DraftReport.fromJson(reports.first),
     );
   }
@@ -214,9 +211,6 @@ class DemoRepository implements KycRepository {
             ..toList())
           .toList()
         ..sort((a, b) => b.detectedAt.compareTo(a.detectedAt)),
-      evidence: (DemoData.evidence.where((x) => x.entityId == entityId))
-          .toList()
-        ..sort((a, b) => b.eventDate.compareTo(a.eventDate)),
       report: report.isEmpty ? null : report.first,
     );
   }

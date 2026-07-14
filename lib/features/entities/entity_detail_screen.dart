@@ -195,7 +195,9 @@ class _Timeline extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Merge risk events + evidence into one chronological stream.
+    // Merge risk events (entity-scoped, always available) with the report's
+    // timeline (report-scoped — only present once Person 4 has filed a report;
+    // see EntityDetail.timeline) into one chronological stream.
     final rows = <(_Kind, DateTime, String, String?, String?, String?)>[];
     for (final r in detail.riskEvents) {
       rows.add((
@@ -207,14 +209,14 @@ class _Timeline extends StatelessWidget {
         null,
       ));
     }
-    for (final ev in detail.evidence) {
+    for (final t in detail.timeline) {
       rows.add((
         _Kind.evidence,
-        ev.eventDate,
-        ev.event,
-        ev.sourceUrl,
+        t.eventDate,
+        t.event,
+        t.sourceUrl,
         null,
-        ev.excerpt,
+        t.excerpt,
       ));
     }
     rows.sort((a, b) => b.$2.compareTo(a.$2));
@@ -237,7 +239,15 @@ class _Timeline extends StatelessWidget {
             if (rows.isEmpty)
               Text('No risk signals recorded yet.',
                   style: TextStyle(color: scheme.onSurfaceVariant))
-            else
+            else ...[
+              if (detail.timeline.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                      'Detailed evidence appears here once a report is filed.',
+                      style: TextStyle(
+                          fontSize: 12, color: scheme.onSurfaceVariant)),
+                ),
               for (var i = 0; i < rows.length; i++)
                 TimelineTile(
                   date: rows[i].$2,
@@ -250,6 +260,7 @@ class _Timeline extends StatelessWidget {
                   excerpt: rows[i].$6,
                   isLast: i == rows.length - 1,
                 ),
+            ],
           ],
         ),
       ),

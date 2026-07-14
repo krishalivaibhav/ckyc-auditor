@@ -42,11 +42,13 @@ begin
            summary = coalesce(p_edited_summary, summary),
            updated_at = now()
      where report_id = p_report_id
-    returning entity_id, * into v_entity, v_report;
+    returning * into v_report;
 
     if not found then
         raise exception 'report % not found', p_report_id;
     end if;
+
+    v_entity := v_report.entity_id;
 
     insert into public.audit_log (actor, action, entity_id, details)
     values (
