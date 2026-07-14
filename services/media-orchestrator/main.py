@@ -20,20 +20,26 @@ TRACKED_ENTITIES = [
 scheduler = BackgroundScheduler()
 
 def poll_gdelt():
-    \"\"\"
+    """
     Background job that continuously polls for adverse media on tracked entities.
-    \"\"\"
+    """
     print("[POLLER] Running scheduled adverse media check...")
     for entity in TRACKED_ENTITIES:
         print(f"[POLLER] Checking entity: {entity.name}")
         MediaOrchestrator.process_entity(entity)
 
+import os
+
+# Read the polling frequency from environment variables (default to 15 minutes if not set)
+# For quarterly scans, you might set this to roughly 129600 minutes (90 days)
+SCAN_FREQUENCY_MINUTES = int(os.getenv("SCAN_FREQUENCY_MINUTES", "15"))
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Start the scheduler on startup
-    scheduler.add_job(poll_gdelt, "interval", minutes=15, id="gdelt_poll_job")
+    # Start the scheduler on startup with the configured frequency
+    scheduler.add_job(poll_gdelt, "interval", minutes=SCAN_FREQUENCY_MINUTES, id="gdelt_poll_job")
     scheduler.start()
-    print("Background poller started.")
+    print(f"Background poller started. Scanning every {SCAN_FREQUENCY_MINUTES} minutes.")
     yield
     # Shutdown the scheduler on exit
     scheduler.shutdown()
@@ -43,9 +49,9 @@ app = FastAPI(title="Media Orchestrator", lifespan=lifespan)
 
 @app.post("/trigger-check", response_model=RiskEvent)
 async def trigger_check(entity: Entity):
-    \"\"\"
+    """
     Manual/on-demand endpoint to screen an entity for adverse media.
-    \"\"\"
+    """
     risk_event = MediaOrchestrator.process_entity(entity)
     if risk_event:
         return risk_event
@@ -54,9 +60,9 @@ async def trigger_check(entity: Entity):
 
 @app.post("/process-verdict", response_model=RiskEvent)
 async def process_verdict(verdict: ResolutionVerdict):
-    \"\"\"
+    """
     Endpoint to receive a confirmed sanctions match from Person 2 and trigger an investigation.
-    \"\"\"
+    """
     risk_event = MediaOrchestrator.process_verdict(verdict)
     if risk_event:
         return risk_event

@@ -12,9 +12,9 @@ AUDIT_LOG_URL = "http://backend-dashboard:8005/audit"
 class MediaOrchestrator:
     @staticmethod
     def process_entity(entity: Entity) -> Optional[RiskEvent]:
-        \"\"\"
+        """
         Queries GDELT for an entity and determines if a RiskEvent should be triggered.
-        \"\"\"
+        """
         articles = GDELTClient.search_adverse_media(entity.name)
         
         # Simple evaluation logic: if there is at least 1 adverse article, we trigger a risk event.
@@ -37,9 +37,9 @@ class MediaOrchestrator:
         
     @staticmethod
     def process_verdict(verdict: ResolutionVerdict) -> Optional[RiskEvent]:
-        \"\"\"
+        """
         Processes a confirmed sanctions match from Person 2 and creates a RiskEvent.
-        \"\"\"
+        """
         if verdict.verdict == "confirmed_match":
             risk_event = RiskEvent(
                 event_id=str(uuid.uuid4()),
@@ -57,9 +57,9 @@ class MediaOrchestrator:
 
     @staticmethod
     def _notify_downstream(risk_event: RiskEvent):
-        \"\"\"
+        """
         Sends the risk event to Person 4 (Investigation Agent) and logs it.
-        \"\"\"
+        """
         # Note: In MVP, we just print this out instead of actually making HTTP requests
         # if the services aren't up yet to avoid crashing the poller.
         print(f"[ORCHESTRATOR] Triggering investigation for Event ID: {risk_event.event_id}")
