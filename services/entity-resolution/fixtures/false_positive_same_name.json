@@ -1,0 +1,25 @@
+{
+  "entity": {
+    "entity_id": "22222222-2222-2222-2222-222222222222",
+    "type": "person",
+    "name": "Rajesh Kumar Sharma",
+    "aliases": [],
+    "dob": "1975-08-14",
+    "nationality": "IN",
+    "din_or_cin": "00123456",
+    "source": "internal_kyc"
+  },
+  "matches": {
+    "query_entity_id": "22222222-2222-2222-2222-222222222222",
+    "candidates": [
+      {
+        "candidate_id": "OFAC-SDN-77310",
+        "matched_name": "Rajesh Sharma",
+        "score": 0.91,
+        "source_list": "OFAC",
+        "matched_fields": ["name"],
+        "raw": { "dob": "1960-01-02", "nationality": "PK" }
+      }
+    ]
+  }
+}
