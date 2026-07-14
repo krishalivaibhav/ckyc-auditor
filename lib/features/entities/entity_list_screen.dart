@@ -168,7 +168,7 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -179,10 +179,16 @@ class _ErrorView extends StatelessWidget {
             Text('Could not load entities',
                 style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 6),
-            Text(message,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 200),
+              child: SingleChildScrollView(
+                child: Text(message,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color:
+                            Theme.of(context).colorScheme.onSurfaceVariant)),
+              ),
+            ),
           ],
         ),
       ),

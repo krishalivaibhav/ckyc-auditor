@@ -10,10 +10,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// The anon key is safe to ship in a client — Row Level Security (see
 /// migration 0002) is what actually protects the data.
 class SupabaseConfig {
-  static const String url =
-      String.fromEnvironment('SUPABASE_URL', defaultValue: '');
-  static const String anonKey =
-      String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+  static const String url ='https://gnntfnezidwhmwzhiwcb.supabase.co';
+  static const String anonKey ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdubnRmbmV6aWR3aG13emhpd2NiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQwMDk5MDMsImV4cCI6MjA5OTU4NTkwM30.4PCYkC4JTWm--SoCXDLCu1QCgpBkTSdKVkTh0CC-0mQ';
 
   /// True when both values were provided. When false the app runs against
   /// [DemoData] so the UI is still fully explorable without a backend.

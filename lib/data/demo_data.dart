@@ -106,7 +106,7 @@ class DemoData {
         resolvedAt: _daysAgo(3)),
     ResolutionVerdict(
         queryEntityId: '33333333-3333-3333-3333-333333333333',
-        candidateId: null,
+        candidateId: 'none',
         verdict: 'needs_review',
         confidence: 0.50,
         explanation:
@@ -160,52 +160,18 @@ class DemoData {
         sourceRefs: const ['https://news.example.com/cedar-aml-fine']),
   ];
 
-  static final List<Evidence> evidence = [
-    Evidence(
-        id: 'ev1',
-        entityId: '22222222-2222-2222-2222-222222222222',
-        eventDate: _daysAgo(2),
-        event: 'Added to OFAC SDN list',
-        sourceUrl: 'https://www.treasury.gov/ofac/downloads/sdn.csv',
-        excerpt: 'Designated under Ukraine-related sanctions program.'),
-    Evidence(
-        id: 'ev2',
-        entityId: '22222222-2222-2222-2222-222222222222',
-        eventDate: _daysAgo(1),
-        event: 'Named in international corruption probe',
-        sourceUrl: 'https://news.example.com/kozlov-probe',
-        excerpt: 'Reportedly under investigation for cross-border laundering.'),
-    Evidence(
-        id: 'ev3',
-        entityId: '33333333-3333-3333-3333-333333333333',
-        eventDate: _daysAgo(5),
-        event: 'Regulatory inquiry opened',
-        sourceUrl: 'https://news.example.com/sunrise-minerals-inquiry',
-        excerpt: 'Local regulator queries source of mineral export funds.'),
-    Evidence(
-        id: 'ev4',
-        entityId: '33333333-3333-3333-3333-333333333333',
-        eventDate: _daysAgo(3),
-        event: 'Ultimate beneficial owner changed',
-        sourceUrl: 'https://registry.example.com/sunrise-ubo',
-        excerpt: 'New UBO registered in a high-risk jurisdiction.'),
-    Evidence(
-        id: 'ev5',
-        entityId: '77777777-7777-7777-7777-777777777777',
-        eventDate: _daysAgo(6),
-        event: 'AML penalty reported',
-        sourceUrl: 'https://news.example.com/cedar-aml-fine',
-        excerpt: 'Fined for weak transaction-monitoring controls.'),
-  ];
-
+  // report_timeline entries live on their DraftReport below (schema.md §7:
+  // report_timeline.report_id, not entity_id). Cedar Real Estate (777...) has
+  // a risk_event but no filed report yet, so it has no detailed timeline —
+  // that's the expected shape, not a gap.
   static final List<DraftReport> reports = [
-    const DraftReport(
+    DraftReport(
       reportId: 'aaaaaaaa-0000-0000-0000-000000000001',
       entityId: '22222222-2222-2222-2222-222222222222',
-      status: 'pending',
+      status: 'draft',
       summary:
           'Viktor A. Kozlov is a confirmed match against the OFAC SDN list (Ukraine-related program), corroborated by matching nationality and date of birth. Adverse media within the last 24 hours reports an active corruption investigation involving cross-border transfers. Combined sanctions and media exposure warrant filing a Suspicious Activity Report.',
-      citations: [
+      citations: const [
         Citation(
             claim: 'Confirmed match against the OFAC SDN list',
             sourceUrl: 'https://www.treasury.gov/ofac/downloads/sdn.csv',
@@ -217,14 +183,31 @@ class DemoData {
             excerpt:
                 'Reportedly under investigation for cross-border laundering.'),
       ],
+      timeline: [
+        TimelineEntry(
+            id: 'tl1',
+            reportId: 'aaaaaaaa-0000-0000-0000-000000000001',
+            eventDate: _daysAgo(2),
+            event: 'Added to OFAC SDN list',
+            sourceUrl: 'https://www.treasury.gov/ofac/downloads/sdn.csv',
+            excerpt: 'Designated under Ukraine-related sanctions program.'),
+        TimelineEntry(
+            id: 'tl2',
+            reportId: 'aaaaaaaa-0000-0000-0000-000000000001',
+            eventDate: _daysAgo(1),
+            event: 'Named in international corruption probe',
+            sourceUrl: 'https://news.example.com/kozlov-probe',
+            excerpt:
+                'Reportedly under investigation for cross-border laundering.'),
+      ],
     ),
-    const DraftReport(
+    DraftReport(
       reportId: 'aaaaaaaa-0000-0000-0000-000000000002',
       entityId: '33333333-3333-3333-3333-333333333333',
-      status: 'pending',
+      status: 'draft',
       summary:
           'Sunrise Minerals & Trading shows no direct sanctions match but presents elevated risk: a regulatory inquiry into export fund sources and a recent change of ultimate beneficial owner to a high-risk jurisdiction. Recommend enhanced due diligence and human review before any transaction approval.',
-      citations: [
+      citations: const [
         Citation(
             claim: 'Regulatory inquiry into export fund sources',
             sourceUrl: 'https://news.example.com/sunrise-minerals-inquiry',
@@ -232,6 +215,22 @@ class DemoData {
         Citation(
             claim:
                 'Change of ultimate beneficial owner to a high-risk jurisdiction',
+            sourceUrl: 'https://registry.example.com/sunrise-ubo',
+            excerpt: 'New UBO registered in a high-risk jurisdiction.'),
+      ],
+      timeline: [
+        TimelineEntry(
+            id: 'tl3',
+            reportId: 'aaaaaaaa-0000-0000-0000-000000000002',
+            eventDate: _daysAgo(5),
+            event: 'Regulatory inquiry opened',
+            sourceUrl: 'https://news.example.com/sunrise-minerals-inquiry',
+            excerpt: 'Local regulator queries source of mineral export funds.'),
+        TimelineEntry(
+            id: 'tl4',
+            reportId: 'aaaaaaaa-0000-0000-0000-000000000002',
+            eventDate: _daysAgo(3),
+            event: 'Ultimate beneficial owner changed',
             sourceUrl: 'https://registry.example.com/sunrise-ubo',
             excerpt: 'New UBO registered in a high-risk jurisdiction.'),
       ],
