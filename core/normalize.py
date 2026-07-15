@@ -16,7 +16,7 @@ import unicodedata
 
 # Leading honorifics we strip. Mirrors eval/build_portfolio's noise injector so a
 # "Shri "-prefixed customer name normalises back onto its canonical form.
-HON = re.compile(r"^(shri|shrimati|smt|mr|mrs|ms|dr|prof|sh|md|mohd)\.?\s+", re.I)
+HON = re.compile(r"^(shri|shrimati|smt|mr|mrs|ms|dr|prof|sh|md|mohd|श्रीमती|श्री|डॉ)\.?\s+", re.I)
 
 
 def normalize(s: str) -> str:
@@ -43,7 +43,8 @@ def normalize(s: str) -> str:
         prev = s
         s = HON.sub("", s.strip())
 
-    s = re.sub(r"[^A-Za-z ]", " ", s)          # drop digits/punctuation/initials-dots
+    s = re.sub(r"[\d_]", " ", s)                      # drop digits and underscores
+    s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)  # keep letters of ANY script
     return re.sub(r"\s+", " ", s).strip().upper()
 
 
