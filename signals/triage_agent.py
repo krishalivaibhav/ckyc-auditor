@@ -3,28 +3,26 @@ signals/triage_agent.py
 -----------------------
 The core AI Agent of the signals package.
 
-Given a news article about an entity, it uses an LLM (Claude) to decide:
-  1. Is this article genuinely ADVERSE to the entity?
-  2. What is the severity (low / medium / high)?
-  3. What is the confidence (0.0 to 1.0)?
-  4. What is the plain-English reasoning?
+Uses Google Gemini (free tier) to judge whether a news article is
+genuinely ADVERSE to a watched entity.
 
 This solves the false-positive problem. Example:
-  "Infosys is fighting against fraud" → NOT adverse (confidence: 0.95)
-  "Adani Group director arrested for fraud" → ADVERSE / HIGH (confidence: 0.97)
+  "Infosys is fighting against fraud"  → NOT adverse (suppressed)
+  "Adani Group director arrested for fraud" → ADVERSE / HIGH (emitted)
 
-The LLM reads the full context, not just keywords.
+The LLM reads full context, not just keywords.
 """
 
 import os
 import json
-import anthropic
+import google.generativeai as genai
 from signals.models import Signal, Severity
 from datetime import datetime, timezone
 
 
-# One Anthropic client instance shared across all calls
-_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+# Configure Gemini with the API key from environment
+genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
+_model = genai.GenerativeModel("gemini-1.5-flash")   # free, fast, capable
 
 TRIAGE_PROMPT = """
 You are a senior KYC compliance analyst at an Indian bank.
@@ -64,19 +62,19 @@ Rules:
 
 def triage(entity_name: str, article: dict) -> Signal | None:
     """
-    Runs the LLM triage agent on a single article.
+    Runs the Gemini triage agent on a single article.
 
     Args:
         entity_name: The name of the watched entity this article is about.
-        article: Raw article dict from NewsAPI (must have title, description, url, publishedAt).
+        article: Raw article dict from NewsAPI (title, description, url, publishedAt).
 
     Returns:
         A Signal object if the article is genuinely adverse.
-        None if the article is NOT adverse or if triage fails.
+        None if NOT adverse or if triage fails.
     """
-    headline = article.get("title", "")
+    headline    = article.get("title", "")
     description = article.get("description") or article.get("content") or ""
-    url = article.get("url", "")
+    url         = article.get("url", "")
     published_at = article.get("publishedAt", datetime.now(timezone.utc).isoformat())
 
     # Skip articles with no useful content
@@ -92,26 +90,27 @@ def triage(entity_name: str, article: dict) -> Signal | None:
     )
 
     try:
-        message = _client.messages.create(
-            model="claude-opus-4-5",
-            max_tokens=512,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        response = _model.generate_content(prompt)
+        raw = response.text.strip()
 
-        raw = message.content[0].text.strip()
+        # Gemini sometimes wraps JSON in markdown code fences — strip them
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
 
-        # Parse the JSON response from the LLM
-        verdict = json.loads(raw)
-
-        is_adverse = verdict.get("is_adverse", False)
-        confidence = float(verdict.get("confidence", 0.0))
-        reasoning = verdict.get("reasoning", "No reasoning provided.")
+        verdict      = json.loads(raw)
+        is_adverse   = verdict.get("is_adverse", False)
+        confidence   = float(verdict.get("confidence", 0.0))
+        reasoning    = verdict.get("reasoning", "No reasoning provided.")
         severity_str = verdict.get("severity", "low")
 
-        print(f"[TriageAgent] '{entity_name}' | adverse={is_adverse} | "
-              f"confidence={confidence:.2f} | headline='{headline[:60]}...'")
+        print(
+            f"[TriageAgent] '{entity_name}' | adverse={is_adverse} | "
+            f"confidence={confidence:.0%} | '{headline[:60]}...'"
+        )
 
-        # Only emit a Signal if the LLM says this IS adverse AND is confident enough
+        # Only emit a Signal if genuinely adverse AND confident enough
         if is_adverse and confidence >= 0.70:
             return Signal(
                 entity_name=entity_name,
@@ -128,7 +127,7 @@ def triage(entity_name: str, article: dict) -> Signal | None:
         return None
 
     except json.JSONDecodeError as e:
-        print(f"[TriageAgent] ERROR: LLM returned invalid JSON for '{entity_name}': {e}")
+        print(f"[TriageAgent] ERROR: Gemini returned invalid JSON for '{entity_name}': {e}")
         return None
     except Exception as e:
         print(f"[TriageAgent] ERROR during triage for '{entity_name}': {e}")
