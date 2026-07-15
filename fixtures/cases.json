@@ -8,6 +8,8 @@
     "assessment_ids": [
       "ASM-001"
     ],
+    "current_score": 0.71,
+    "score_updated_at": "2026-07-13T10:00:00+00:00",
     "timeline": [
       {
         "at": "2026-07-13T09:00:00+00:00",
@@ -17,7 +19,10 @@
           "EV-002"
         ],
         "tier_before": "NONE",
-        "tier_after": "NONE"
+        "tier_after": "NONE",
+        "score_delta": 0.2,
+        "dedup_key": "CL-0001",
+        "resolution_confidence": 0.9
       },
       {
         "at": "2026-07-13T10:00:00+00:00",
@@ -27,7 +32,10 @@
           "EV-001"
         ],
         "tier_before": "NONE",
-        "tier_after": "HIGH"
+        "tier_after": "HIGH",
+        "score_delta": 0.51,
+        "dedup_key": "PAN:ATDPD4055C",
+        "resolution_confidence": 1.0
       },
       {
         "at": "2026-07-14T09:00:00+00:00",

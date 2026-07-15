@@ -481,13 +481,19 @@ sar = {
 cases = [
     {"case_id": "CASE-001", "client_id": "C1001", "opened_at": iso(NOW - timedelta(days=2)),
      "status": "IN_REVIEW", "tier": "HIGH", "assessment_ids": ["ASM-001"],
+     # running risk score after the latest timeline event (sum of score_deltas below).
+     "current_score": 0.71, "score_updated_at": iso(NOW - timedelta(days=2, hours=-1)),
      "timeline": [
          {"at": iso(NOW - timedelta(days=2)), "kind": "SIGNAL",
           "summary": "Adverse media: SEBI restrains subject in front-running probe.",
-          "evidence_ids": ["EV-002"], "tier_before": "NONE", "tier_after": "NONE"},
+          "evidence_ids": ["EV-002"], "tier_before": "NONE", "tier_after": "NONE",
+          # a correlated news signal nudges the score but does not move the tier by itself.
+          "score_delta": 0.20, "dedup_key": "CL-0001", "resolution_confidence": 0.9},
          {"at": iso(NOW - timedelta(days=2, hours=-1)), "kind": "REASSESSMENT",
           "summary": "PAN exact-match to an active NSE/SEBI debarment. Gate fired.",
-          "evidence_ids": ["EV-001"], "tier_before": "NONE", "tier_after": "HIGH"},
+          "evidence_ids": ["EV-001"], "tier_before": "NONE", "tier_after": "HIGH",
+          # deterministic PAN-exact match: full confidence, the dominant score contribution.
+          "score_delta": 0.51, "dedup_key": "PAN:ATDPD4055C", "resolution_confidence": 1.0},
          {"at": iso(NOW - timedelta(days=1)), "kind": "SAR",
           "summary": "SAR drafted. Citation coverage 96%. 2 claims excluded as unverifiable.",
           "evidence_ids": ["EV-001", "EV-002", "EV-003"],

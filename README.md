@@ -86,3 +86,22 @@ behind a fuzzy score is what "AI Delivered Right" means.
 Agents go where non-determinism buys something: **adverse-media triage, ER adjudication of the
 ambiguous band, investigation, SAR drafting.** Gates, scoring, and deterministic matching are
 plain code. We don't dress cron jobs up as agents.
+
+## Architecture
+
+```
+Watchlist Δ ──┐
+              ├──► Signal ──(ER ladder)──> Candidate ──(gates+score)──> RiskAssessment
+News/GDELT ───┘         │                       │                            │
+                         └───────────────────────┴────────────────────────────┘
+                              flows in memory — never persisted standalone
+                                                    │
+                                        (tier != NONE) ▼
+                                            Evidence ──> SAR
+                                                    │
+                                                    ▼
+                              PERSISTED: Case + SAR + AuditEvent  (SQLite, only sink)
+                                                    │
+                              every write appends AuditEvent (append-only, raises on UPDATE/DELETE)
+                              every claim in a SAR carries Evidence [EV-nnn]
+```

@@ -43,6 +43,36 @@ def test_only_case_sar_audit_persist():
     assert tables == {"cases", "sars", "audit_events"}
 
 
+def _customer(client_id):
+    return Customer(**next(c for c in _fx("customers") if c["client_id"] == client_id))
+
+
+def test_pan_exact_high_skips_investigation(monkeypatch):
+    """A deterministic HIGH (PAN-exact, confidence 1.0) is already settled — the
+    orchestrator must NOT spend an investigation on it. draft_sar still runs."""
+    import core.orchestrator as orch
+    calls = {"investigate": 0}
+    monkeypatch.setattr(orch, "investigate",
+                        lambda a: calls.__setitem__("investigate", calls["investigate"] + 1) or [])
+
+    case = orch.run_pipeline(_customer("C1001"), persist_result=False)   # PAN-exact -> HIGH
+    assert case.tier == "HIGH"
+    assert calls["investigate"] == 0        # investigation skipped
+    assert case.sar is not None             # draft_sar still ran
+
+
+def test_critical_still_investigates(monkeypatch):
+    """CRITICAL (UAPA) is a contextual tier — investigation must run."""
+    import core.orchestrator as orch
+    calls = {"investigate": 0}
+    monkeypatch.setattr(orch, "investigate",
+                        lambda a: calls.__setitem__("investigate", calls["investigate"] + 1) or [])
+
+    case = orch.run_pipeline(_customer("C1007"), persist_result=False)   # UAPA -> CRITICAL
+    assert case.tier == "CRITICAL"
+    assert calls["investigate"] == 1        # investigation ran
+
+
 def test_audit_is_append_only():
     seed_from_fixtures()
     conn = store.connect()

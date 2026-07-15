@@ -191,7 +191,15 @@ def run_pipeline(customer: Customer, persist_result: bool = True) -> Case:
 
     sar = None
     if assessment.tier != "NONE":
-        evidence = safe(investigate, assessment, default=[], label="investigate")
+        # Gate investigation: only spend it where it can change the answer — the
+        # contextual/ambiguous tiers (CRITICAL, EDD) or when the resolver left a
+        # candidate AMBIGUOUS. A deterministic HIGH (PAN-exact, confidence 1.0) is
+        # already settled and skips investigation. draft_sar still runs regardless;
+        # for a skipped case it simply receives empty evidence.
+        needs_investigation = (assessment.tier in ("CRITICAL", "EDD")
+                               or any(c.decision == "AMBIGUOUS" for c in candidates))
+        evidence = (safe(investigate, assessment, default=[], label="investigate")
+                    if needs_investigation else [])
         sar = safe(draft_sar, assessment, evidence, customer, default=None, label="draft_sar")
 
     case = build_case(customer, assessment, sar)

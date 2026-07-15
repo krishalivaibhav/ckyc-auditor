@@ -175,6 +175,10 @@ class TimelineEvent(BaseModel):
     evidence_ids: list[str] = Field(default_factory=list)
     tier_before: Tier
     tier_after: Tier                        # tier CAN GO DOWN (revoked orders). show it.
+    # cumulative-timeline fields — how this event moved the running risk score.
+    score_delta: float = 0.0                # +/- contribution of THIS event to the score
+    dedup_key: Optional[str] = None         # collapses re-reports of the same event -> one entry
+    resolution_confidence: float = 1.0      # ER confidence behind the event (1.0 = deterministic)
 
 
 class ReviewerAction(BaseModel):
@@ -213,6 +217,9 @@ class Case(BaseModel):
     timeline: list[TimelineEvent] = Field(default_factory=list)
     sar: Optional[SAR] = None
     reviewer_actions: list[ReviewerAction] = Field(default_factory=list)
+    # running risk score as of the latest timeline event (sum of score_deltas).
+    current_score: float = 0.0
+    score_updated_at: Optional[datetime] = None
 
 
 # ---------------------------------------------------------------- 7. audit
