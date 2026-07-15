@@ -1,0 +1,163 @@
+[
+  {
+    "candidate_id": "CAND-001",
+    "client_id": "C1001",
+    "watchlist_id": "NK-H6CX9FSjNZiQZp5KdTmBRX",
+    "signal_id": "SIG-0001",
+    "match_method": "PAN_EXACT",
+    "confidence": 1.0,
+    "decision": "CONFIRMED",
+    "rejection_reason": null,
+    "features": {
+      "pan_match": true,
+      "name_similarity": 1.0,
+      "list_status": "active"
+    }
+  },
+  {
+    "candidate_id": "CAND-002",
+    "client_id": "C1002",
+    "watchlist_id": "NK-H6CX9FSjNZiQZp5KdTmBRX",
+    "signal_id": "SIG-0001",
+    "match_method": "PAN_MISMATCH_REJECT",
+    "confidence": 0.0,
+    "decision": "REJECTED",
+    "rejection_reason": "PAN AFOPG8341M != ATDPD4055C -> distinct entities despite identical name",
+    "features": {
+      "name_similarity": 1.0,
+      "customer_pan": "AFOPG8341M",
+      "watchlist_pan": "ATDPD4055C"
+    }
+  },
+  {
+    "candidate_id": "CAND-003",
+    "client_id": "C1003",
+    "watchlist_id": "Q2735272",
+    "signal_id": "SIG-0008",
+    "match_method": "ALIAS_BARE_REJECT",
+    "confidence": 0.05,
+    "decision": "REJECTED",
+    "rejection_reason": "Matched only the bare alias 'Amir Khan' (alias_quality=bare_token). Bare tokens require corroboration and may never trigger alone.",
+    "features": {
+      "matched_alias": "Amir Khan",
+      "alias_quality": "bare_token",
+      "corroboration": null
+    }
+  },
+  {
+    "candidate_id": "CAND-004",
+    "client_id": "C1004",
+    "watchlist_id": "NK-RFRc3268KhWVZVJZbfYEtE",
+    "signal_id": null,
+    "match_method": "CROSS_LIST_NO_LINK",
+    "confidence": 0.3,
+    "decision": "REJECTED",
+    "rejection_reason": "Name appears on BOTH the Sabha PEP register and the NSE debarred list. The two sources share zero identifiers (debarred has PAN/no DOB; Sabha has DOB/no PAN). Auto-linking is not permitted without corroboration.",
+    "features": {
+      "name_similarity": 1.0,
+      "pep_has_pan": false,
+      "debarred_has_dob": false
+    }
+  },
+  {
+    "candidate_id": "CAND-005",
+    "client_id": "C1005",
+    "watchlist_id": "NK-RFRc3268KhWVZVJZbfYEtE",
+    "signal_id": "SIG-0004",
+    "match_method": "NAME_EXACT",
+    "confidence": 0.78,
+    "decision": "CONFIRMED",
+    "rejection_reason": null,
+    "features": {
+      "name_similarity": 1.0,
+      "party": "Independent",
+      "occupancy": "current"
+    }
+  },
+  {
+    "candidate_id": "CAND-006",
+    "client_id": "C1006",
+    "watchlist_id": "NK-2doDqFKpfJ3PdypTLj7mWP",
+    "signal_id": null,
+    "match_method": "NAME_EXACT",
+    "confidence": 0.71,
+    "decision": "CONFIRMED",
+    "rejection_reason": null,
+    "features": {
+      "relationship": "spouse",
+      "source": "sabha_family_graph"
+    }
+  },
+  {
+    "candidate_id": "CAND-007",
+    "client_id": "C1007",
+    "watchlist_id": "Q2735272",
+    "signal_id": "SIG-0006",
+    "match_method": "PHONETIC",
+    "confidence": 0.88,
+    "decision": "AMBIGUOUS",
+    "rejection_reason": null,
+    "features": {
+      "double_metaphone": "HFSMTST",
+      "jaro_winkler": 0.91,
+      "matched_alias": "Muhammad Saeed",
+      "alias_quality": "full_name",
+      "note": "no identifier exists on the UAPA list -> corroboration required"
+    }
+  },
+  {
+    "candidate_id": "CAND-008",
+    "client_id": "C1007",
+    "watchlist_id": "Q2735272",
+    "signal_id": "SIG-0006",
+    "match_method": "LLM_ADJUDICATED",
+    "confidence": 0.93,
+    "decision": "CONFIRMED",
+    "rejection_reason": null,
+    "features": {
+      "corroboration": "article co-mentions NIA chargesheet + designated org",
+      "llm_reasoning": "Transliteration variant confirmed by contextual co-occurrence with the designating authority."
+    }
+  },
+  {
+    "candidate_id": "CAND-009",
+    "client_id": "C1008",
+    "watchlist_id": "NK-CxXJ6AsUGDrsF4AgCJsa6r",
+    "signal_id": "SIG-0007",
+    "match_method": "PAN_EXACT",
+    "confidence": 1.0,
+    "decision": "CONFIRMED",
+    "rejection_reason": null,
+    "features": {
+      "pan_match": true,
+      "entity_type": "Corporate",
+      "pan_4th_char": "C"
+    }
+  },
+  {
+    "candidate_id": "CAND-010",
+    "client_id": "C1010",
+    "watchlist_id": null,
+    "signal_id": null,
+    "match_method": "NO_MATCH",
+    "confidence": 0.0,
+    "decision": "REJECTED",
+    "rejection_reason": "No candidate above blocking threshold.",
+    "features": {}
+  },
+  {
+    "candidate_id": "CAND-011",
+    "client_id": "C1009",
+    "watchlist_id": "NK-6yySjr78xmuE6m3uwF8NQf",
+    "signal_id": "SIG-0003",
+    "match_method": "PAN_EXACT",
+    "confidence": 1.0,
+    "decision": "CONFIRMED",
+    "rejection_reason": null,
+    "features": {
+      "pan_match": true,
+      "list_status": "revoked",
+      "note": "order REVOKED -> tier must DE-ESCALATE"
+    }
+  }
+]

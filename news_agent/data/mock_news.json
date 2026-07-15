@@ -1,0 +1,82 @@
+[
+  {
+    "entity_name": "Muhammad Saeed",
+    "title": "NIA widens terror financing probe; Muhammad Saeed among names under scrutiny",
+    "description": "The National Investigation Agency (NIA), acting on a Ministry of Home Affairs UAPA notification, has widened its terror financing probe. Investigators said Muhammad Saeed is among those being examined for suspected cross-border transfers.",
+    "url": "https://mocknews.example/article/nia-terror-probe-saeed",
+    "source": {
+      "name": "The Hindu"
+    },
+    "publishedAt": "2026-07-15T12:14:56.977494+00:00"
+  },
+  {
+    "entity_name": "Muhammad Saeed",
+    "title": "Muhammad Saeed's counsel denies wrongdoing as agencies continue inquiry",
+    "description": "Counsel for Muhammad Saeed issued a statement denying all allegations in the ongoing terror financing investigation and said his client is cooperating with the NIA.",
+    "url": "https://mocknews.example/article/saeed-counsel-denies",
+    "source": {
+      "name": "Hindustan Times"
+    },
+    "publishedAt": "2026-07-15T15:14:56.977494+00:00"
+  },
+  {
+    "entity_name": "Dipak Dwiwedi",
+    "title": "SEBI moves to debar Dipak Dwiwedi over commodity market manipulation",
+    "description": "The Securities and Exchange Board of India (SEBI) has issued an order to debar Dipak Dwiwedi from the securities market following an NSE surveillance report on suspected market manipulation in commodity contracts.",
+    "url": "https://mocknews.example/article/sebi-debar-dwiwedi",
+    "source": {
+      "name": "Economic Times"
+    },
+    "publishedAt": "2026-07-15T06:14:56.977494+00:00"
+  },
+  {
+    "entity_name": "Dipak Dwiwedi",
+    "title": "Dipak Dwiwedi elected treasurer of Mumbai commodities trade association",
+    "description": "The Mumbai commodities trade association announced its new office bearers this week. Dipak Dwiwedi was elected treasurer for a two-year term.",
+    "url": "https://mocknews.example/article/dwiwedi-treasurer",
+    "source": {
+      "name": "Local Business Daily"
+    },
+    "publishedAt": "2026-07-14T02:14:56.977494+00:00"
+  },
+  {
+    "entity_name": "Sumalatha Ambareesh",
+    "title": "Anti-corruption panel summons questioned over alleged bribery in constituency works",
+    "description": "An anti-corruption panel has issued summons in a probe into alleged bribery in constituency development works. Parliament records show Sumalatha Ambareesh, a sitting member, has been asked to respond to questions on undocumented payments.",
+    "url": "https://mocknews.example/article/ambareesh-bribery-probe",
+    "source": {
+      "name": "Reuters"
+    },
+    "publishedAt": "2026-07-14T22:14:56.977494+00:00"
+  },
+  {
+    "entity_name": "Amir Khan",
+    "title": "Amir Khan announces new film wrapping principal photography in Jaipur",
+    "description": "Actor Amir Khan told reporters his upcoming feature has wrapped principal photography in Jaipur and is slated for a festival premiere next spring.",
+    "url": "https://mocknews.example/article/amir-khan-film",
+    "source": {
+      "name": "NDTV"
+    },
+    "publishedAt": "2026-07-15T10:14:56.977494+00:00"
+  },
+  {
+    "entity_name": "Tanvi Chatterjee",
+    "title": "Tanvi Chatterjee appointed to fintech startup advisory board",
+    "description": "Fintech startup PayLeaf announced that Tanvi Chatterjee has been appointed to its advisory board, citing her decade of experience in retail payments.",
+    "url": "https://mocknews.example/article/chatterjee-board",
+    "source": {
+      "name": "Moneycontrol"
+    },
+    "publishedAt": "2026-07-15T03:14:56.977494+00:00"
+  },
+  {
+    "entity_name": "INDRAWATI NIRMAN PVT LTD",
+    "title": "Indrawati Nirman Pvt Ltd wins highway maintenance contract in Madhya Pradesh",
+    "description": "Indrawati Nirman Pvt Ltd said it has won a three-year highway maintenance contract from the state public works department, its largest order this fiscal year.",
+    "url": "https://mocknews.example/article/indrawati-contract",
+    "source": {
+      "name": "Business Standard"
+    },
+    "publishedAt": "2026-07-14T12:14:56.977494+00:00"
+  }
+]

@@ -1,0 +1,25 @@
+{
+  "entity": {
+    "entity_id": "33333333-3333-3333-3333-333333333333",
+    "type": "person",
+    "name": "Anita Desai",
+    "aliases": [],
+    "dob": "1982-03-22",
+    "nationality": "IN",
+    "din_or_cin": null,
+    "source": "client_input"
+  },
+  "matches": {
+    "query_entity_id": "33333333-3333-3333-3333-333333333333",
+    "candidates": [
+      {
+        "candidate_id": "PEP-IN-40188",
+        "matched_name": "Anita Desai",
+        "score": 0.97,
+        "source_list": "PEP",
+        "matched_fields": ["name"],
+        "raw": { "dob": null, "nationality": "IN" }
+      }
+    ]
+  }
+}

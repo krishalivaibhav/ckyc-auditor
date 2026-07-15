@@ -1,0 +1,28 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.pytest_cache/
+.DS_Store
+*.egg-info/
+node_modules/
+ui/build/
+data/cache/
+
+# Raw watchlists — large, distributed separately via bundle zips
+data/targets_nested_*.json
+data/*.xls
+data/*.xlsx
+data/entities_ftm_*
+data/senzing_*
+data/targets_simple_*
+data/names_*
+
+# Generated watchlist JSONs
+data/watchlist_canonical.json
+data/watchlist_details.json
+data/watchlist_relationships.json
+data/extra/
+data/targets.simple.csv
+

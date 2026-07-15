@@ -1,0 +1,187 @@
+[
+  {
+    "signal_id": "SIG-0001",
+    "signal_type": "ADVERSE_MEDIA",
+    "occurred_at": "2026-07-13T09:00:00+00:00",
+    "ingested_at": "2026-07-13T10:00:00+00:00",
+    "source": "RSS:economictimes",
+    "source_url": "https://economictimes.indiatimes.com/markets/example-sebi-order",
+    "source_credibility": 0.9,
+    "headline": "SEBI bars Dipak Dwiwedi from securities market in front-running probe",
+    "raw_excerpt": "The regulator has restrained Dipak Dwiwedi from accessing the securities market, citing evidence of front-running in the matter under investigation.",
+    "content_hash": "a1f9c2...",
+    "story_cluster_id": "CL-0001",
+    "mentioned_names": [
+      "Dipak Dwiwedi"
+    ],
+    "mentioned_orgs": [
+      "SEBI"
+    ],
+    "risk_typology": [
+      "MARKET_MANIPULATION",
+      "REGULATORY_ACTION"
+    ],
+    "severity": 0.82,
+    "is_rehash": false
+  },
+  {
+    "signal_id": "SIG-0002",
+    "signal_type": "ADVERSE_MEDIA",
+    "occurred_at": "2026-07-13T06:00:00+00:00",
+    "ingested_at": "2026-07-13T09:00:00+00:00",
+    "source": "RSS:businessstandard",
+    "source_url": "https://www.business-standard.com/markets/example",
+    "source_credibility": 0.85,
+    "headline": "Regulator restrains Dipak Dwiwedi in front-running case",
+    "raw_excerpt": "Same event, different outlet. Must collapse into story_cluster_id CL-0001 and produce ONE alert, not two.",
+    "content_hash": "b7e0d1...",
+    "story_cluster_id": "CL-0001",
+    "mentioned_names": [
+      "Dipak Dwiwedi"
+    ],
+    "mentioned_orgs": [
+      "SEBI"
+    ],
+    "risk_typology": [
+      "MARKET_MANIPULATION"
+    ],
+    "severity": 0.8,
+    "is_rehash": false
+  },
+  {
+    "signal_id": "SIG-0003",
+    "signal_type": "WATCHLIST_DELTA",
+    "occurred_at": "2026-07-06T09:00:00+00:00",
+    "ingested_at": "2026-07-06T09:00:00+00:00",
+    "source": "NSE_CIRCULAR",
+    "source_url": "https://archives.nseindia.com/content/circulars/CML39467.pdf",
+    "source_credibility": 1.0,
+    "headline": "NSE revokes debarment: Bhanu Prasad Medabalimi",
+    "raw_excerpt": "Debarment revoked per NSE circular. Risk profile must DE-ESCALATE. Zero press coverage — proves the system does not depend on news.",
+    "content_hash": "c3aa77...",
+    "story_cluster_id": null,
+    "mentioned_names": [
+      "Bhanu Prasad Medabalimi"
+    ],
+    "mentioned_orgs": [
+      "NSE"
+    ],
+    "risk_typology": [
+      "REGULATORY_ACTION"
+    ],
+    "severity": 0.0,
+    "is_rehash": false
+  },
+  {
+    "signal_id": "SIG-0004",
+    "signal_type": "ADVERSE_MEDIA",
+    "occurred_at": "2026-07-14T09:00:00+00:00",
+    "ingested_at": "2026-07-14T13:00:00+00:00",
+    "source": "GDELT",
+    "source_url": "https://example-news.in/appointment",
+    "source_credibility": 0.6,
+    "headline": "Sumalatha Ambareesh appointed to parliamentary standing committee",
+    "raw_excerpt": "NOT adverse media. The triage agent must return risk_typology=[NONE]. Most naive systems flag this.",
+    "content_hash": "d90f2e...",
+    "story_cluster_id": "CL-0004",
+    "mentioned_names": [
+      "Sumalatha Ambareesh"
+    ],
+    "mentioned_orgs": [],
+    "risk_typology": [
+      "NONE"
+    ],
+    "severity": 0.0,
+    "is_rehash": false
+  },
+  {
+    "signal_id": "SIG-0005",
+    "signal_type": "ADVERSE_MEDIA",
+    "occurred_at": "2022-09-14T09:00:00+00:00",
+    "ingested_at": "2026-07-12T09:00:00+00:00",
+    "source": "GDELT",
+    "source_url": "https://example-news.in/retrospective",
+    "source_credibility": 0.4,
+    "headline": "Five years on: the Dipak Dwiwedi case revisited",
+    "raw_excerpt": "A re-report of an OLD event. is_rehash=true -> recency decay must down-weight it. Not new risk.",
+    "content_hash": "e11b44...",
+    "story_cluster_id": "CL-0005",
+    "mentioned_names": [
+      "Dipak Dwiwedi"
+    ],
+    "mentioned_orgs": [],
+    "risk_typology": [
+      "MARKET_MANIPULATION"
+    ],
+    "severity": 0.3,
+    "is_rehash": true
+  },
+  {
+    "signal_id": "SIG-0006",
+    "signal_type": "ADVERSE_MEDIA",
+    "occurred_at": "2026-07-11T09:00:00+00:00",
+    "ingested_at": "2026-07-11T09:00:00+00:00",
+    "source": "GDELT",
+    "source_url": "https://example-news.in/terror-financing",
+    "source_credibility": 0.95,
+    "headline": "NIA names Hafiz Muhammad Saeed in cross-border financing chargesheet",
+    "raw_excerpt": "Article spells the name as one of eight transliterations. Phonetic matching required. UAPA gate -> CRITICAL -> always human review.",
+    "content_hash": "f22c88...",
+    "story_cluster_id": "CL-0006",
+    "mentioned_names": [
+      "Muhammad Saeed"
+    ],
+    "mentioned_orgs": [
+      "NIA"
+    ],
+    "risk_typology": [
+      "TERRORISM"
+    ],
+    "severity": 0.98,
+    "is_rehash": false
+  },
+  {
+    "signal_id": "SIG-0007",
+    "signal_type": "EXEC_TURNOVER",
+    "occurred_at": "2026-07-09T09:00:00+00:00",
+    "ingested_at": "2026-07-09T09:00:00+00:00",
+    "source": "RSS:moneycontrol",
+    "source_url": "https://www.moneycontrol.com/news/example",
+    "source_credibility": 0.8,
+    "headline": "Indrawati Nirman Pvt Ltd announces sudden CFO exit",
+    "raw_excerpt": "Rapid executive turnover — the PS names this explicitly as a trigger.",
+    "content_hash": "091aa3...",
+    "story_cluster_id": "CL-0007",
+    "mentioned_names": [],
+    "mentioned_orgs": [
+      "Indrawati Nirman Pvt Ltd"
+    ],
+    "risk_typology": [
+      "REGULATORY_ACTION"
+    ],
+    "severity": 0.45,
+    "is_rehash": false
+  },
+  {
+    "signal_id": "SIG-0008",
+    "signal_type": "ADVERSE_MEDIA",
+    "occurred_at": "2026-07-10T09:00:00+00:00",
+    "ingested_at": "2026-07-10T09:00:00+00:00",
+    "source": "GDELT",
+    "source_url": "https://example-news.in/unrelated-amir-khan",
+    "source_credibility": 0.5,
+    "headline": "Amir Khan wins district cricket tournament",
+    "raw_excerpt": "Matches the bare UAPA alias 'Amir Khan'. Must be SUPPRESSED. This is the false positive that drowns compliance teams.",
+    "content_hash": "aa3390...",
+    "story_cluster_id": "CL-0008",
+    "mentioned_names": [
+      "Amir Khan"
+    ],
+    "mentioned_orgs": [],
+    "risk_typology": [
+      "NONE"
+    ],
+    "severity": 0.0,
+    "is_rehash": false
+  }
+]

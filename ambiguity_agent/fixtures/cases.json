@@ -1,0 +1,234 @@
+[
+  {
+    "case_id": "CASE-001",
+    "client_id": "C1001",
+    "opened_at": "2026-07-13T09:00:00+00:00",
+    "status": "IN_REVIEW",
+    "tier": "HIGH",
+    "assessment_ids": [
+      "ASM-001"
+    ],
+    "current_score": 0.71,
+    "score_updated_at": "2026-07-13T10:00:00+00:00",
+    "timeline": [
+      {
+        "at": "2026-07-13T09:00:00+00:00",
+        "kind": "SIGNAL",
+        "summary": "Adverse media: SEBI restrains subject in front-running probe.",
+        "evidence_ids": [
+          "EV-002"
+        ],
+        "tier_before": "NONE",
+        "tier_after": "NONE",
+        "score_delta": 0.2,
+        "dedup_key": "CL-0001",
+        "resolution_confidence": 0.9
+      },
+      {
+        "at": "2026-07-13T10:00:00+00:00",
+        "kind": "REASSESSMENT",
+        "summary": "PAN exact-match to an active NSE/SEBI debarment. Gate fired.",
+        "evidence_ids": [
+          "EV-001"
+        ],
+        "tier_before": "NONE",
+        "tier_after": "HIGH",
+        "score_delta": 0.51,
+        "dedup_key": "PAN:ATDPD4055C",
+        "resolution_confidence": 1.0
+      },
+      {
+        "at": "2026-07-14T09:00:00+00:00",
+        "kind": "SAR",
+        "summary": "SAR drafted. Citation coverage 96%. 2 claims excluded as unverifiable.",
+        "evidence_ids": [
+          "EV-001",
+          "EV-002",
+          "EV-003"
+        ],
+        "tier_before": "HIGH",
+        "tier_after": "HIGH"
+      }
+    ],
+    "sar": {
+      "sar_id": "SAR-001",
+      "case_id": "CASE-001",
+      "drafted_at": "2026-07-12T09:00:00+00:00",
+      "subject_name": "Dipak Dwiwedi",
+      "subject_pan": "ATDPD4055C",
+      "sections": {
+        "subject_identification": "The subject is Dipak Dwiwedi (PAN ATDPD4055C), an individual customer onboarded 2021-03-14 with a current exposure of INR 4.82 crore [EV-001].",
+        "basis_for_suspicion": "The subject's PAN exactly matches an active debarment order on the NSE/SEBI debarred entities register [EV-001]. Independent adverse media reports the same regulatory action [EV-002]. The match was established on an exact identifier and did not rely on name similarity.",
+        "chronology_of_events": "2023-03-02: SEBI order issued against the subject [EV-001]. 2026-07-13: adverse media reported the restraint [EV-002]. 2026-07-13: risk tier escalated NONE -> HIGH.",
+        "evidence_summary": "CONFIRMED: PAN-level match to an active NSE/SEBI debarment [EV-001]; corroborating adverse media [EV-002]. MISSING: directorship history could not be retrieved from the MCA registry [EV-003] and has been excluded.",
+        "risk_assessment": "Tier HIGH. Gate DEBARRED_PAN_EXACT_ACTIVE fired on a deterministic identifier match (entity-resolution confidence 1.00) [EV-001]. Soft score 0.71.",
+        "recommended_action": "Escalate for compliance review. Recommend restriction of securities-related activity pending confirmation. Human sign-off required before filing."
+      },
+      "evidence": [
+        {
+          "evidence_id": "EV-001",
+          "kind": "WATCHLIST_ENTRY",
+          "status": "CONFIRMED",
+          "claim": "PAN ATDPD4055C exactly matches an active NSE/SEBI debarment order.",
+          "source_name": "NSE debarred entities register",
+          "source_url": "https://archives.nseindia.com/content/circulars/INVG59340.pdf",
+          "excerpt": "Order Particulars: SEBI Interim Order in the matter of Stock Recommendations using YouTube in the scrip of Sadhna Broadcast Limited",
+          "retrieved_at": "2026-07-15T09:00:00+00:00",
+          "confidence": 1.0
+        },
+        {
+          "evidence_id": "EV-002",
+          "kind": "NEWS_ARTICLE",
+          "status": "CONFIRMED",
+          "claim": "Adverse media reports the subject was restrained by SEBI in a front-running probe.",
+          "source_name": "Economic Times",
+          "source_url": "https://economictimes.indiatimes.com/markets/example-sebi-order",
+          "excerpt": "The regulator has restrained the subject from accessing the securities market.",
+          "retrieved_at": "2026-07-15T09:00:00+00:00",
+          "confidence": 0.9
+        },
+        {
+          "evidence_id": "EV-003",
+          "kind": "REGISTRY_RECORD",
+          "status": "MISSING",
+          "claim": "Directorship history could not be retrieved; MCA registry lookup returned no record.",
+          "source_name": "MCA21 registry",
+          "source_url": "",
+          "excerpt": "",
+          "retrieved_at": "2026-07-15T09:00:00+00:00",
+          "confidence": 0.0
+        }
+      ],
+      "unverified_claims": [
+        "The subject holds a directorship in a listed entity. — EXCLUDED: no MCA registry record was retrievable. This claim has been removed from the report.",
+        "The subject is associated with the entity named in the related SEBI order. — EXCLUDED: co-accused linkage could not be confirmed at identifier level."
+      ],
+      "citation_coverage": 0.96,
+      "status": "DRAFT"
+    },
+    "reviewer_actions": [
+      {
+        "action_id": "RA-001",
+        "at": "2026-07-15T03:00:00+00:00",
+        "reviewer": "analyst_priya",
+        "action": "REQUEST_INFO",
+        "note": "Need MCA directorship confirmation before I sign off on the SAR."
+      }
+    ]
+  },
+  {
+    "case_id": "CASE-002",
+    "client_id": "C1009",
+    "opened_at": "2025-06-10T09:00:00+00:00",
+    "status": "OPEN",
+    "tier": "MONITOR",
+    "assessment_ids": [
+      "ASM-004"
+    ],
+    "timeline": [
+      {
+        "at": "2025-06-10T09:00:00+00:00",
+        "kind": "REASSESSMENT",
+        "summary": "PAN exact-match to an active NSE/SEBI debarment.",
+        "evidence_ids": [],
+        "tier_before": "NONE",
+        "tier_after": "HIGH"
+      },
+      {
+        "at": "2026-07-06T09:00:00+00:00",
+        "kind": "REASSESSMENT",
+        "summary": "NSE revoked the debarment order. Risk DE-ESCALATED.",
+        "evidence_ids": [
+          "EV-030"
+        ],
+        "tier_before": "HIGH",
+        "tier_after": "MONITOR"
+      }
+    ],
+    "sar": null,
+    "reviewer_actions": []
+  },
+  {
+    "case_id": "CASE-003",
+    "client_id": "C1007",
+    "opened_at": "2026-07-11T09:00:00+00:00",
+    "status": "ESCALATED",
+    "tier": "CRITICAL",
+    "assessment_ids": [
+      "ASM-003"
+    ],
+    "timeline": [
+      {
+        "at": "2026-07-11T09:00:00+00:00",
+        "kind": "SIGNAL",
+        "summary": "NIA chargesheet names a transliteration of a UAPA-designated individual.",
+        "evidence_ids": [
+          "EV-021"
+        ],
+        "tier_before": "NONE",
+        "tier_after": "NONE"
+      },
+      {
+        "at": "2026-07-11T10:00:00+00:00",
+        "kind": "REASSESSMENT",
+        "summary": "UAPA gate fired. No identifier confirmation possible on either side.",
+        "evidence_ids": [
+          "EV-020",
+          "EV-022"
+        ],
+        "tier_before": "NONE",
+        "tier_after": "CRITICAL"
+      },
+      {
+        "at": "2026-07-12T09:00:00+00:00",
+        "kind": "REVIEW",
+        "summary": "Escalated to MLRO. Auto-decision withheld in both directions by design.",
+        "evidence_ids": [],
+        "tier_before": "CRITICAL",
+        "tier_after": "CRITICAL"
+      }
+    ],
+    "sar": null,
+    "reviewer_actions": [
+      {
+        "action_id": "RA-002",
+        "at": "2026-07-12T09:00:00+00:00",
+        "reviewer": "analyst_priya",
+        "action": "ESCALATE",
+        "note": "UAPA. MLRO sign-off mandatory."
+      }
+    ]
+  },
+  {
+    "case_id": "CASE-004",
+    "client_id": "C1002",
+    "opened_at": "2026-07-13T09:00:00+00:00",
+    "status": "DISMISSED",
+    "tier": "NONE",
+    "assessment_ids": [
+      "ASM-002"
+    ],
+    "timeline": [
+      {
+        "at": "2026-07-13T09:00:00+00:00",
+        "kind": "REASSESSMENT",
+        "summary": "Name matched a debarred entity; PANs differ. Suppressed automatically.",
+        "evidence_ids": [
+          "EV-010"
+        ],
+        "tier_before": "NONE",
+        "tier_after": "NONE"
+      }
+    ],
+    "sar": null,
+    "reviewer_actions": [
+      {
+        "action_id": "RA-003",
+        "at": "2026-07-14T09:00:00+00:00",
+        "reviewer": "analyst_rahul",
+        "action": "DISMISS",
+        "note": "Correct suppression. Confirmed distinct person. Adding a suppression rule so this pair never re-alerts."
+      }
+    ]
+  }
+]
