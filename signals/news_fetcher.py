@@ -93,6 +93,39 @@ def fetch(entity_name: str, aliases: list[str] = [], days_back: int = 7) -> list
     Returns:
         List of RawArticle objects, deduplicated by content hash.
     """
+    # --- MOCK NEWS INTERCEPTOR FOR DEMO ---
+    if os.getenv("USE_MOCK_NEWS", "false").lower() == "true":
+        logger.info(f"MOCK MODE ON: Reading synthetic news for '{entity_name}' from data/mock_news.json")
+        try:
+            with open("data/mock_news.json", "r", encoding="utf-8") as f:
+                import json
+                all_mock_news = json.load(f)
+            
+            # Filter news intended for this entity
+            entity_news = [n for n in all_mock_news if n.get("entity_name") == entity_name]
+            
+            articles = []
+            seen_hashes = set()
+            for n in entity_news:
+                c_hash = _make_content_hash(n["title"], n["url"])
+                if c_hash not in seen_hashes:
+                    seen_hashes.add(c_hash)
+                    articles.append(RawArticle(
+                        entity_name=entity_name,
+                        headline=n["title"],
+                        description=n["description"],
+                        url=n["url"],
+                        source_name=n["source"]["name"],
+                        published_at=n["publishedAt"],
+                        fetched_at=datetime.now(timezone.utc).isoformat()
+                    ))
+            logger.info(f"MOCK MODE: Returned {len(articles)} mock article(s) for '{entity_name}'.")
+            return articles
+        except Exception as e:
+            logger.error(f"Failed to read mock news file: {e}")
+            return []
+    # --------------------------------------
+
     if not NEWS_API_KEY:
         logger.error("NEWS_API_KEY not set. Skipping news fetch.")
         return []
