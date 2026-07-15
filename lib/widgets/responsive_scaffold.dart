@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:hugeicons/hugeicons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/breakpoints.dart';
+import '../core/theme.dart';
 import '../data/repository.dart';
 import '../features/auth/session.dart';
+import '../models/models.dart';
 
-/// Shell around the primary tabs. NavigationRail on wide (web/tablet),
-/// BottomNavigationBar on narrow (phone) — one codebase, two layouts.
 class ResponsiveScaffold extends ConsumerWidget {
   final Widget child;
   final String location;
@@ -15,9 +16,9 @@ class ResponsiveScaffold extends ConsumerWidget {
   const ResponsiveScaffold(
       {super.key, required this.child, required this.location});
 
-  static const _tabs = [
-    (path: '/entities', icon: Icons.shield_outlined, label: 'Watchlist'),
-    (path: '/audit', icon: Icons.receipt_long_outlined, label: 'Audit log'),
+  static const List<({String path, List<List<dynamic>> icon, String label})> _tabs = [
+    (path: '/entities', icon: HugeIcons.strokeRoundedView, label: 'Watchlist'),
+    (path: '/audit', icon: HugeIcons.strokeRoundedCheckList, label: 'Audit Log'),
   ];
 
   int get _index => location.startsWith('/audit') ? 1 : 0;
@@ -25,12 +26,19 @@ class ResponsiveScaffold extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wide = Breakpoints.isWide(context);
-    final demo = ref.watch(isDemoModeProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
 
     final body = Column(
       children: [
-        if (demo) const _DemoBanner(),
-        Expanded(child: child),
+        _TopNavBar(location: location),
+        Expanded(
+          child: Stack(
+            children: [
+              child,
+            ],
+          ),
+        ),
       ],
     );
 
@@ -38,25 +46,49 @@ class ResponsiveScaffold extends ConsumerWidget {
       return Scaffold(
         body: Row(
           children: [
-            NavigationRail(
-              extended: MediaQuery.sizeOf(context).width >= 1200,
-              minExtendedWidth: 200,
-              selectedIndex: _index,
-              onDestinationSelected: (i) => context.go(_tabs[i].path),
-              leading: const _RailHeader(),
-              trailing: const Expanded(
-                  child: Align(
-                      alignment: Alignment.bottomCenter,
+            Container(
+              width: 256,
+              color: isDark ? const Color(0xFF0A0A0C) : Colors.white,
+              child: Column(
+                children: [
+                  const _RailHeader(),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      children: [
+                        for (int i = 0; i < _tabs.length; i++)
+                          _SidebarItem(
+                            tab: _tabs[i],
+                            isSelected: _index == i,
+                            onTap: () => context.go(_tabs[i].path),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: InkWell(
+                      onTap: () => ref.read(sessionProvider.notifier).signOut(),
+                      borderRadius: BorderRadius.circular(8),
                       child: Padding(
-                          padding: EdgeInsets.only(bottom: 12),
-                          child: _SignOutButton()))),
-              destinations: [
-                for (final t in _tabs)
-                  NavigationRailDestination(
-                      icon: Icon(t.icon), label: Text(t.label)),
-              ],
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        child: Row(
+                          children: [
+                            HugeIcon(icon: HugeIcons.strokeRoundedLogout01, size: 24, color: colorScheme.onSurfaceVariant),
+                            const SizedBox(width: 16),
+                            Text('Sign Out', style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontSize: 14, color: colorScheme.onSurfaceVariant,
+                            )),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const VerticalDivider(width: 1),
+            VerticalDivider(width: 1, color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
             Expanded(child: body),
           ],
         ),
@@ -64,18 +96,60 @@ class ResponsiveScaffold extends ConsumerWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_tabs[_index].label),
-        actions: const [_SignOutButton()],
+      body: SafeArea(child: body),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          border: Border(top: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.5))),
+        ),
+        child: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: (i) => context.go(_tabs[i].path),
+          destinations: [
+            for (final t in _tabs)
+              NavigationDestination(icon: HugeIcon(icon: t.icon, color: Theme.of(context).colorScheme.onSurfaceVariant), label: t.label),
+          ],
+        ),
       ),
-      body: body,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => context.go(_tabs[i].path),
-        destinations: [
-          for (final t in _tabs)
-            NavigationDestination(icon: Icon(t.icon), label: t.label),
-        ],
+    );
+  }
+}
+
+class _SidebarItem extends StatelessWidget {
+  final ({String path, List<List<dynamic>> icon, String label}) tab;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _SidebarItem({required this.tab, required this.isSelected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isSelected ? scheme.primaryContainer.withValues(alpha: 0.1) : Colors.transparent,
+            border: isSelected ? Border(right: BorderSide(color: scheme.primary, width: 4)) : null,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              HugeIcon(icon: tab.icon, size: 24, color: isSelected ? scheme.primary : scheme.onSurfaceVariant),
+              const SizedBox(width: 16),
+              Text(
+                tab.label,
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontSize: 14,
+                  color: isSelected ? scheme.primary : scheme.onSurfaceVariant,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -85,55 +159,224 @@ class _RailHeader extends StatelessWidget {
   const _RailHeader();
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
-      child: Column(
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.5))),
+      ),
+      child: Row(
         children: [
-          Icon(Icons.verified_user,
-              color: Theme.of(context).colorScheme.primary, size: 30),
-          const SizedBox(height: 6),
-          const Text('TechMKYC',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+              border: Border.all(color: scheme.primary.withValues(alpha: 0.3)),
+            ),
+            child: HugeIcon(icon: HugeIcons.strokeRoundedUser, size: 24, color: scheme.primary),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('TechMKYC', style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                color: scheme.primary, fontWeight: FontWeight.bold, fontSize: 20
+              )),
+              Text('Compliance Auditor', style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              )),
+            ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _SignOutButton extends ConsumerWidget {
-  const _SignOutButton();
+class _TopNavBar extends StatelessWidget {
+  final String location;
+  const _TopNavBar({required this.location});
+
+  void _comingSoon(BuildContext context, String label) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$label — coming soon')));
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return IconButton(
-      tooltip: 'Sign out',
-      icon: const Icon(Icons.logout),
-      onPressed: () => ref.read(sessionProvider.notifier).signOut(),
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onWatchlist = location.startsWith('/entities');
+    final onAudit = location.startsWith('/audit');
+
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0A0A0C) : scheme.surfaceContainerLowest,
+        border: Border(
+            bottom: BorderSide(
+                color: scheme.outlineVariant.withValues(alpha: 0.5))),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _TopNavItem(
+                    icon: HugeIcons.strokeRoundedView,
+                    label: 'Watchlist',
+                    isSelected: onWatchlist,
+                    onTap: () => context.go('/entities')),
+                _TopNavItem(
+                    icon: HugeIcons.strokeRoundedCheckList,
+                    label: 'Audit Log',
+                    isSelected: onAudit,
+                    onTap: () => context.go('/audit')),
+                _TopNavItem(
+                    icon: HugeIcons.strokeRoundedShield01,
+                    label: 'Investigations',
+                    onTap: () => _comingSoon(context, 'Investigations')),
+                _TopNavItem(
+                    icon: HugeIcons.strokeRoundedFile01,
+                    label: 'Reports',
+                    onTap: () => _comingSoon(context, 'Reports')),
+                _TopNavItem(
+                    icon: HugeIcons.strokeRoundedSettings01,
+                    label: 'Settings',
+                    onTap: () => _comingSoon(context, 'Settings')),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: const HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: Colors.grey),
+                tooltip: 'Search the watchlist',
+                onPressed: () => context.go('/entities'),
+              ),
+              const _NotificationsBell(),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _DemoBanner extends StatelessWidget {
-  const _DemoBanner();
+/// High-risk alert bell: reads the watchlist, shows a dot when any entity is
+/// high severity, and lists them in a menu that deep-links to the entity.
+class _NotificationsBell extends ConsumerWidget {
+  const _NotificationsBell();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final highRisk = ref.watch(watchlistProvider).maybeWhen(
+          data: (items) =>
+              items.where((d) => d.topSeverity == 'high').toList(),
+          orElse: () => const <EntityDetail>[],
+        );
+
+    return PopupMenuButton<String>(
+      tooltip: 'High-risk alerts',
+      position: PopupMenuPosition.under,
+      onSelected: (id) => context.push('/entities/$id'),
+      itemBuilder: (_) => highRisk.isEmpty
+          ? [
+              const PopupMenuItem(
+                  enabled: false, child: Text('No high-risk alerts')),
+            ]
+          : [
+              for (final d in highRisk)
+                PopupMenuItem(
+                  value: d.entity.entityId,
+                  child: Row(children: [
+                    HugeIcon(icon: HugeIcons.strokeRoundedAlert01,
+                        size: 18, color: AppTheme.severityHigh),
+                    const SizedBox(width: 10),
+                    Flexible(
+                        child: Text(d.entity.name,
+                            overflow: TextOverflow.ellipsis)),
+                  ]),
+                ),
+            ],
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            HugeIcon(icon: HugeIcons.strokeRoundedNotification01, size: 24, color: scheme.onSurfaceVariant),
+            if (highRisk.isNotEmpty)
+              Positioned(
+                top: -2,
+                right: -2,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                      color: scheme.error, shape: BoxShape.circle),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TopNavItem extends StatelessWidget {
+  final List<List<dynamic>> icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _TopNavItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isSelected = false,
+  });
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.tertiaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        child: Row(
-          children: [
-            Icon(Icons.info_outline,
-                size: 15, color: scheme.onTertiaryContainer),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                'Demo mode — bundled sample data. Set SUPABASE_URL / SUPABASE_ANON_KEY to connect the live backend.',
-                style: TextStyle(
-                    fontSize: 12, color: scheme.onTertiaryContainer),
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border(
+              bottom: BorderSide(
+                  color: isSelected ? scheme.primary : Colors.transparent,
+                  width: 2)),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+            child: Row(
+              children: [
+                HugeIcon(icon: icon,
+                    size: 20,
+                    color:
+                        isSelected ? scheme.primary : scheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: isSelected
+                            ? scheme.primary
+                            : scheme.onSurfaceVariant,
+                        fontWeight:
+                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                      ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

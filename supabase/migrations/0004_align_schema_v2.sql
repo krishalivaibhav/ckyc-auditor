@@ -27,8 +27,12 @@ alter table public.resolution_verdicts
     alter column anchor_used drop default;
 
 -- ── draft_reports.status: 'pending' -> 'draft' ────────────────────────────────
-update public.draft_reports set status = 'draft' where status = 'pending';
+-- Drop the old check FIRST: it still forbids 'draft', so updating the data
+-- below would violate it before the new constraint is in place. Also drop the
+-- default before touching rows so nothing re-inserts 'pending' mid-migration.
+alter table public.draft_reports alter column status drop default;
 alter table public.draft_reports drop constraint if exists draft_reports_status_check;
+update public.draft_reports set status = 'draft' where status = 'pending';
 alter table public.draft_reports
     add constraint draft_reports_status_check
     check (status in ('draft', 'approved', 'edited', 'rejected'));
