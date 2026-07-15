@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/breakpoints.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
+import '../../widgets/decision_dialog.dart';
+import '../auth/session.dart';
 
 /// Case detail (Screen 2 + 3 + 4). Everything the pipeline persisted for one
 /// client, drilled into from the alert queue:
@@ -35,12 +37,81 @@ class EntityDetailScreen extends ConsumerWidget {
           onPressed: () =>
               context.canPop() ? context.pop() : context.go('/entities'),
         ),
+        actions: const [_TimeSkipButton(), SizedBox(width: 12)],
       ),
       body: e360.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => _ErrorView(message: '$err'),
         data: (data) => _Detail(clientId: clientId, e360: data),
       ),
+    );
+  }
+}
+
+/// TEST-mode only: advance the scripted scenario +15 months — the real-world
+/// gap between the first adverse-media report and the sanction. The backend
+/// terminal narrates the news + sanctions agents firing; when the call returns
+/// the timeline, evidence and SAR re-read from the updated demo sink.
+class _TimeSkipButton extends ConsumerStatefulWidget {
+  const _TimeSkipButton();
+
+  @override
+  ConsumerState<_TimeSkipButton> createState() => _TimeSkipButtonState();
+}
+
+class _TimeSkipButtonState extends ConsumerState<_TimeSkipButton> {
+  bool _busy = false;
+
+  Future<void> _skip() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(const SnackBar(
+        duration: Duration(seconds: 6),
+        content: Text('Skipping 15 months — watch the backend terminal: '
+            'two more articles land, then the SEBI sanction…')));
+    try {
+      await ref.read(repositoryProvider).timeSkip();
+      if (mounted) {
+        messenger.showSnackBar(const SnackBar(
+            content: Text('15 months later: sanction imposed — case '
+                'escalated to CRITICAL, SAR ready for download')));
+      }
+    } catch (e) {
+      if (mounted) {
+        messenger
+            .showSnackBar(SnackBar(content: Text('Time skip failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final status = ref.watch(demoStatusProvider).maybeWhen(
+        data: (s) => s, orElse: () => DemoStatus.live);
+    if (!status.canTimeSkip) return const SizedBox.shrink();
+    const color = Color(0xFFF59E0B);
+    return Center(
+      child: _busy
+          ? const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          : FilledButton.tonalIcon(
+              style: FilledButton.styleFrom(
+                backgroundColor: color.withValues(alpha: 0.15),
+                foregroundColor: color,
+              ),
+              onPressed: _skip,
+              icon: const Icon(Icons.fast_forward, size: 18),
+              label: const Text('Time skip +15 months',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
     );
   }
 }
@@ -86,6 +157,7 @@ class _Detail extends ConsumerWidget {
     final timeline = _TimelinePanel(async: timelineAsync);
     final evidence = _EvidencePanel(async: caseAsync);
     final sar = _SarPanel(clientId: clientId, async: caseAsync);
+    final decision = _DecisionPanel(async: caseAsync);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 40),
@@ -124,12 +196,153 @@ class _Detail extends ConsumerWidget {
                       ]),
                 const SizedBox(height: 28),
                 sar,
+                const SizedBox(height: 28),
+                decision,
                 const SizedBox(height: 48),
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── reviewer decision (blacklist / dismiss) ──────────────────────────────────
+
+class _DecisionPanel extends ConsumerWidget {
+  final AsyncValue<Case?> async;
+  const _DecisionPanel({required this.async});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return async.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (c) {
+        if (c == null) return const SizedBox.shrink();
+        return _Panel(
+          title: 'Reviewer decision',
+          icon: Icons.gavel_outlined,
+          trailing: c.decision == null
+              ? null
+              : _DecisionPill(decision: c.decision!),
+          child: c.decision != null
+              ? _decided(context, c)
+              : _actions(context, ref, c),
+        );
+      },
+    );
+  }
+
+  Widget _decided(BuildContext context, Case c) {
+    final scheme = Theme.of(context).colorScheme;
+    final last = c.reviewerActions.isEmpty ? null : c.reviewerActions.last;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+            c.isBlacklisted
+                ? 'This entity has been blacklisted. It is retained for filing '
+                    'and cannot be dismissed here.'
+                : 'This case has been dismissed as a false positive.',
+            style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5)),
+        if (last != null) ...[
+          const SizedBox(height: 10),
+          Text('by ${last.reviewer}${last.note.isEmpty ? '' : ' — “${last.note}”'}',
+              style: TextStyle(
+                  fontSize: 12.5,
+                  fontStyle: FontStyle.italic,
+                  color: scheme.onSurfaceVariant)),
+        ],
+      ],
+    );
+  }
+
+  Widget _actions(BuildContext context, WidgetRef ref, Case c) {
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+            'Record the terminal decision on this entity. The action is written '
+            'to the append-only audit trail under your reviewer name.',
+            style: TextStyle(color: scheme.onSurfaceVariant, height: 1.5)),
+        const SizedBox(height: 16),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            FilledButton.icon(
+              onPressed: () => _review(context, ref, c, EntityDecision.blacklist),
+              style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626)),
+              icon: const Icon(Icons.block, size: 18),
+              label: const Text('Blacklist entity'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _review(context, ref, c, EntityDecision.dismiss),
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text('Dismiss as false positive'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _review(
+      BuildContext context, WidgetRef ref, Case c, String action) async {
+    final blacklist = action == EntityDecision.blacklist;
+    final note = await promptDecision(
+      context,
+      title: blacklist ? 'Blacklist entity' : 'Dismiss case',
+      message: blacklist
+          ? 'Confirm this entity is a true match and should be blacklisted.'
+          : 'Confirm this alert is a false positive and can be dismissed.',
+      confirmLabel: blacklist ? 'Blacklist' : 'Dismiss',
+      danger: blacklist,
+    );
+    if (note == null) return; // cancelled
+    final reviewer = ref.read(sessionProvider).reviewerName ?? 'unknown';
+    try {
+      await ref.read(repositoryProvider).reviewCase(
+            caseId: c.caseId,
+            action: action,
+            note: note,
+            reviewerName: reviewer,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                '${blacklist ? 'Blacklisted' : 'Dismissed'} · logged as human:$reviewer')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Action failed: $e')));
+      }
+    }
+  }
+}
+
+class _DecisionPill extends StatelessWidget {
+  final String decision;
+  const _DecisionPill({required this.decision});
+  @override
+  Widget build(BuildContext context) {
+    final blacklisted = decision == 'blacklisted';
+    final color =
+        blacklisted ? const Color(0xFFDC2626) : const Color(0xFF6B7280);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Text(blacklisted ? 'Blacklisted' : 'Dismissed',
+          style: TextStyle(
+              fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }

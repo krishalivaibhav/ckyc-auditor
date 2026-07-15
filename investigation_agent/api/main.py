@@ -180,6 +180,31 @@ def ingest_news_signal(payload: dict = Body(...)):
             "cases": [_case_summary(c) for c in cases]}
 
 
+# ---- Judges' demo: the scripted two-phase Vijay Mallya scenario (test mode).
+# The read-API forwards here when the dashboard toggles live -> test. Runs the
+# real agent functions against a SEPARATE demo sink (ckyc_demo.db) and narrates
+# the flow to this terminal. See api/demo.py.
+from api import demo as _demo  # noqa: E402 — grouped with its routes on purpose
+
+
+@app.post("/demo/start")
+def demo_start():
+    return _demo.start()
+
+
+@app.post("/demo/timeskip")
+def demo_timeskip():
+    try:
+        return _demo.timeskip()
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+
+
+@app.get("/demo/status")
+def demo_status():
+    return _demo.status()
+
+
 # ---- ER demo/pitch endpoints (unchanged contract).
 @app.get("/api/suppressions")
 def suppressions():

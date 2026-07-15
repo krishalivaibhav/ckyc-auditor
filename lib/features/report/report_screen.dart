@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/api.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
+import '../../widgets/decision_dialog.dart';
+import '../auth/session.dart';
 
 /// SAR draft review (Screen 6). Renders the Suspicious Activity Report the
 /// investigation agent drafted for a case: section-structured body with inline
@@ -37,22 +40,24 @@ class ReportScreen extends ConsumerWidget {
             return const Center(
                 child: Text('No SAR has been drafted for this case yet.'));
           }
-          return _Report(kase: c, sar: sar);
+          return _Report(clientId: clientId, kase: c, sar: sar);
         },
       ),
     );
   }
 }
 
-class _Report extends StatelessWidget {
+class _Report extends ConsumerWidget {
+  final String clientId;
   final Case kase;
   final Sar sar;
-  const _Report({required this.kase, required this.sar});
+  const _Report({required this.clientId, required this.kase, required this.sar});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final evidenceById = {for (final e in kase.evidence) e.evId: e};
+    final isDemo = ref.watch(isDemoModeProvider);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -62,7 +67,14 @@ class _Report extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _StatusBanner(status: sar.status),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _StatusBanner(status: sar.status)),
+                  const SizedBox(width: 12),
+                  _DownloadPdfButton(clientId: clientId, disabled: isDemo),
+                ],
+              ),
               const SizedBox(height: 18),
               Text('Suspicious Activity Report — draft',
                   style: Theme.of(context)
@@ -82,12 +94,131 @@ class _Report extends StatelessWidget {
               ],
               const SizedBox(height: 24),
               _CitationLegend(evidence: kase.evidence),
+              const SizedBox(height: 28),
+              if (sar.status == 'draft')
+                _SarActions(
+                    onReview: (action, note) =>
+                        _review(context, ref, action, note))
+              else
+                _DecidedNote(status: sar.status),
               const SizedBox(height: 40),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Future<void> _review(
+      BuildContext context, WidgetRef ref, String action, String note) async {
+    final reviewer = ref.read(sessionProvider).reviewerName ?? 'unknown';
+    try {
+      await ref.read(repositoryProvider).reviewSar(
+            caseId: kase.caseId,
+            action: action,
+            reviewerName: reviewer,
+            note: note,
+          );
+      if (context.mounted) {
+        final past = action == SarDecision.approve ? 'approved' : 'denied';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('SAR $past · logged as human:$reviewer')));
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Action failed: $e')));
+      }
+    }
+  }
+}
+
+class _SarActions extends StatelessWidget {
+  final void Function(String action, String note) onReview;
+  const _SarActions({required this.onReview});
+
+  Future<void> _confirm(BuildContext context, String action) async {
+    final approve = action == SarDecision.approve;
+    final note = await promptDecision(
+      context,
+      title: approve ? 'Approve & file SAR' : 'Deny SAR',
+      message: approve
+          ? 'Confirm the report is accurate and ready to file.'
+          : 'Deny this draft. Record why it was rejected.',
+      confirmLabel: approve ? 'Approve & file' : 'Deny',
+      danger: !approve,
+    );
+    if (note != null) onReview(action, note);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        FilledButton.icon(
+          onPressed: () => _confirm(context, SarDecision.approve),
+          style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF10B981)),
+          icon: const Icon(Icons.check, size: 18),
+          label: const Text('Approve & file'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => _confirm(context, SarDecision.deny),
+          style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFFDC2626)),
+          icon: const Icon(Icons.close, size: 18),
+          label: const Text('Deny'),
+        ),
+      ],
+    );
+  }
+}
+
+class _DecidedNote extends StatelessWidget {
+  final String status;
+  const _DecidedNote({required this.status});
+  @override
+  Widget build(BuildContext context) {
+    final approved = status == 'approved';
+    return Text(
+      approved
+          ? 'This SAR has been approved and filed. The decision is recorded in '
+              'the append-only audit trail.'
+          : 'This SAR has been denied. The decision is recorded in the '
+              'append-only audit trail.',
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+    );
+  }
+}
+
+/// Downloads the SAR filled into casefile_sar_exact_template.html as a PDF.
+/// The read-API renders the PDF server-side and sends it with a
+/// Content-Disposition: attachment header, so opening the URL is enough —
+/// the browser handles the actual save. Not wired for demo mode (there's no
+/// pipeline sink to render from).
+class _DownloadPdfButton extends StatelessWidget {
+  final String clientId;
+  final bool disabled;
+  const _DownloadPdfButton({required this.clientId, required this.disabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return FilledButton.icon(
+      onPressed: disabled ? null : () => _download(context),
+      icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+      label: const Text('Download PDF'),
+    );
+  }
+
+  Future<void> _download(BuildContext context) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/entity/$clientId/sar/pdf');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the PDF download.')));
+    }
   }
 }
 

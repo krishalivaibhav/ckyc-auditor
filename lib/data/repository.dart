@@ -34,7 +34,14 @@ abstract class KycRepository {
   });
 
   /// Emits whenever upstream data changes, so the UI can refresh live.
-  Stream<void> changes();
+  ///
+  /// Carries a monotonically increasing revision — NOT void — deliberately:
+  /// [changesProvider] is a StreamProvider, and Riverpod skips notifying
+  /// dependents when the new AsyncData equals the previous one. A void stream
+  /// emits identical `AsyncData(null)` states, so only the FIRST event would
+  /// ever trigger a re-fetch (the time-skip-didn't-refresh bug). Distinct
+  /// revision values make every event propagate.
+  Stream<int> changes();
 
   // ── 05_SAMAKSH_ui.md six-screen contract ──────────────────────────────────
   // The tier-based model. Served by ApiRepository from ckyc.db (api/server.py);
@@ -73,6 +80,7 @@ abstract class KycRepository {
     required String caseId,
     required String action,
     required String reviewerName,
+    String note = '',
   });
 
   /// Screen 5 — the suppression log (alerts we did NOT raise, and why).
@@ -88,6 +96,39 @@ abstract class KycRepository {
     required DateTime to,
     int speed = 1000,
   });
+
+  // ── live/test mode — the judges' demo ─────────────────────────────────────
+
+  /// Current mode + scenario phase (0 = not started, 1 = first news,
+  /// 2 = after the time skip).
+  Future<DemoStatus> fetchMode();
+
+  /// Switch 'live' <-> 'test'. Switching to test runs the scripted scenario on
+  /// the backend (watch its terminal) and re-points every read at the demo
+  /// sink; the call returns when phase 1 has been persisted.
+  Future<DemoStatus> setMode(String mode);
+
+  /// Advance the test scenario +15 months (3 news articles + the sanction).
+  Future<DemoStatus> timeSkip();
+}
+
+/// Live/test mode status. Not part of the six-screen data contract — pure
+/// demo-control plumbing, so it lives here rather than in models.dart.
+class DemoStatus {
+  final String mode; // 'live' | 'test'
+  final int phase; // 0 none, 1 first news, 2 after time skip
+
+  const DemoStatus({required this.mode, required this.phase});
+
+  bool get isTest => mode == 'test';
+  bool get canTimeSkip => isTest && phase == 1;
+
+  factory DemoStatus.fromJson(Map<String, dynamic> j) => DemoStatus(
+        mode: (j['mode'] as String?) ?? 'live',
+        phase: (j['phase'] as num?)?.toInt() ?? 0,
+      );
+
+  static const live = DemoStatus(mode: 'live', phase: 0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,9 +148,11 @@ class ApiRepository implements KycRepository {
 
   final http.Client _client;
   final String _base;
-  // No server push yet; the stream stays open but never emits, so change-aware
-  // providers simply load once. Replay/Realtime plug in here later.
-  final _changes = StreamController<void>.broadcast();
+  // Emits a fresh revision after every successful write / mode switch so all
+  // change-aware providers re-fetch. (No server push yet; local events only.)
+  final _changes = StreamController<int>.broadcast();
+  var _rev = 0;
+  void _bump() => _changes.add(++_rev);
 
   Uri _uri(String path, [Map<String, String>? query]) =>
       Uri.parse('$_base$path').replace(
@@ -123,8 +166,17 @@ class ApiRepository implements KycRepository {
     return jsonDecode(res.body);
   }
 
+  Future<dynamic> _post(String path, Map<String, dynamic> body) async {
+    final res = await _client.post(_uri(path),
+        headers: {'Content-Type': 'application/json'}, body: jsonEncode(body));
+    if (res.statusCode != 200) {
+      throw ApiException(res.statusCode, path, res.body);
+    }
+    return res.body.isEmpty ? null : jsonDecode(res.body);
+  }
+
   @override
-  Stream<void> changes() => _changes.stream;
+  Stream<int> changes() => _changes.stream;
 
   Future<void> dispose() async {
     _client.close();
@@ -209,27 +261,38 @@ class ApiRepository implements KycRepository {
     return Metrics.fromJson(j);
   }
 
-  // ── writes — deferred to the UI phase (read-only for now) ─────────────────
-  static Never _readOnly(String what) => throw UnimplementedError(
-      '$what is a write — not wired yet. The read-only phase serves GETs from '
-      'ckyc.db; reviewer writes POST to the API in the UI rewire.');
-
+  // ── writes — the reviewer's terminal decision, POSTed to the read-API ─────
+  // These are the ONLY mutations: the read-API applies them to the same sink
+  // the pipeline persists to (flip Case status + append one audit row, atomic).
+  // Firing [_changes] afterwards makes every change-aware provider re-fetch.
   @override
   Future<void> reviewCase({
     required String caseId,
     required String action,
     required String note,
     required String reviewerName,
-  }) =>
-      _readOnly('reviewCase');
+  }) async {
+    await _post('/api/case/$caseId/review',
+        {'action': action, 'note': note, 'reviewer': reviewerName});
+    _bump();
+  }
 
   @override
   Future<void> reviewSar({
     required String caseId,
     required String action,
     required String reviewerName,
-  }) =>
-      _readOnly('reviewSar');
+    String note = '',
+  }) async {
+    await _post('/api/case/$caseId/sar/review',
+        {'action': action, 'note': note, 'reviewer': reviewerName});
+    _bump();
+  }
+
+  // ── still deferred (retired schema.md ingest/report model) ────────────────
+  static Never _readOnly(String what) => throw UnimplementedError(
+      '$what is a write with no backing in this contract — the ingest form and '
+      'the schema.md draft-report review belong to the retired model.');
 
   @override
   Future<Entity> ingestEntity(Entity draft) => _readOnly('ingestEntity');
@@ -250,6 +313,29 @@ class ApiRepository implements KycRepository {
     int speed = 1000,
   }) async {
     // No server-side replay endpoint yet; no-op so callers don't crash.
+  }
+
+  // ── live/test mode ─────────────────────────────────────────────────────────
+  @override
+  Future<DemoStatus> fetchMode() async {
+    final j = await _get('/api/mode') as Map<String, dynamic>;
+    return DemoStatus.fromJson(j);
+  }
+
+  @override
+  Future<DemoStatus> setMode(String mode) async {
+    // Switching to test runs the whole phase-1 scenario server-side before
+    // returning — the caller should show progress while awaiting this.
+    final j = await _post('/api/mode', {'mode': mode}) as Map<String, dynamic>;
+    _bump(); // every screen re-reads from the newly-pointed sink
+    return DemoStatus.fromJson(j);
+  }
+
+  @override
+  Future<DemoStatus> timeSkip() async {
+    final j = await _post('/api/demo/timeskip', {}) as Map<String, dynamic>;
+    _bump();
+    return DemoStatus.fromJson(j);
   }
 
   // ── retired schema.md §1–6 (entities/verdicts/risk_events) — no DB backing ─
@@ -279,7 +365,9 @@ class ApiException implements Exception {
 // Demo (offline) implementation — mutates in-memory copies of the seed data
 // ─────────────────────────────────────────────────────────────────────────────
 class DemoRepository implements KycRepository {
-  final _changes = StreamController<void>.broadcast();
+  final _changes = StreamController<int>.broadcast();
+  var _rev = 0;
+  void _bump() => _changes.add(++_rev);
   late final List<Entity> _entities = [...DemoData.entities];
   late final List<DraftReport> _reports = [...DemoData.reports];
   late final List<AuditEntry> _audit = [...DemoData.audit];
@@ -288,7 +376,7 @@ class DemoRepository implements KycRepository {
   var _seq = 0;
 
   @override
-  Stream<void> changes() => _changes.stream;
+  Stream<int> changes() => _changes.stream;
 
   @override
   Future<List<EntityDetail>> fetchWatchlist() async {
@@ -350,7 +438,7 @@ class DemoRepository implements KycRepository {
           entityId: e.entityId,
           timestamp: DateTime.now().toUtc(),
         ));
-    _changes.add(null);
+    _bump();
     return e;
   }
 
@@ -387,7 +475,7 @@ class DemoRepository implements KycRepository {
           timestamp: DateTime.now().toUtc(),
           details: {'report_id': reportId, 'new_status': newStatus},
         ));
-    _changes.add(null);
+    _bump();
   }
 
   // ── 05_SAMAKSH_ui.md six-screen contract ──────────────────────────────────
@@ -484,7 +572,7 @@ class DemoRepository implements KycRepository {
           timestamp: DateTime.now().toUtc(),
           details: {'case_id': caseId, 'note': note},
         ));
-    _changes.add(null);
+    _bump();
   }
 
   @override
@@ -492,6 +580,7 @@ class DemoRepository implements KycRepository {
     required String caseId,
     required String action,
     required String reviewerName,
+    String note = '',
   }) async {
     final c = _cases[caseId];
     final sar = c?.sar;
@@ -521,9 +610,9 @@ class DemoRepository implements KycRepository {
           action: 'sar_$newStatus',
           entityId: c.clientId,
           timestamp: DateTime.now().toUtc(),
-          details: {'case_id': caseId},
+          details: {'case_id': caseId, 'note': note},
         ));
-    _changes.add(null);
+    _bump();
   }
 
   @override
@@ -532,6 +621,16 @@ class DemoRepository implements KycRepository {
 
   @override
   Future<Metrics> fetchMetrics() async => DemoData.metrics;
+
+  // Offline fixtures have no backend to run the scripted scenario against.
+  @override
+  Future<DemoStatus> fetchMode() async => DemoStatus.live;
+
+  @override
+  Future<DemoStatus> setMode(String mode) async => DemoStatus.live;
+
+  @override
+  Future<DemoStatus> timeSkip() async => DemoStatus.live;
 
   @override
   Future<void> replay({
@@ -547,7 +646,7 @@ class DemoRepository implements KycRepository {
     final step = Duration(milliseconds: ms);
     for (var i = 0; i < ticks; i++) {
       await Future.delayed(step);
-      _changes.add(null);
+      _bump();
     }
   }
 }
@@ -568,9 +667,11 @@ final repositoryProvider = Provider<KycRepository>((ref) {
 /// True when running on bundled demo data (surfaced in the UI as a banner).
 final isDemoModeProvider = Provider<bool>((ref) => ApiConfig.useDemoData);
 
-/// Fires whenever upstream data changes. Screens watch this to auto-refresh —
-/// the live seam for server push/replay (currently inert; loads once).
-final changesProvider = StreamProvider<void>(
+/// Fires whenever upstream data changes. Screens watch this to auto-refresh.
+/// Carries the repository's revision counter — every event is a DISTINCT
+/// AsyncData, so Riverpod re-notifies dependents on each one (a void stream
+/// would dedupe to the first event and later writes would never refresh).
+final changesProvider = StreamProvider<int>(
     (ref) => ref.watch(repositoryProvider).changes());
 
 /// Watchlist, auto-refreshed on any change event.
@@ -639,4 +740,11 @@ final suppressionsProvider = FutureProvider<List<Suppression>>((ref) async {
 /// Before/after toggle metrics.
 final metricsProvider = FutureProvider<Metrics>((ref) async {
   return ref.watch(repositoryProvider).fetchMetrics();
+});
+
+/// Live/test mode + scenario phase. Re-fetched on every change event so the
+/// mode toggle and the time-skip button stay in sync after scenario runs.
+final demoStatusProvider = FutureProvider<DemoStatus>((ref) async {
+  ref.watch(changesProvider);
+  return ref.watch(repositoryProvider).fetchMode();
 });

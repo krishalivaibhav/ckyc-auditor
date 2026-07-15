@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/repository.dart';
 import '../../models/models.dart';
+import '../../widgets/mode_toggle.dart';
 
 /// Screen 1 — the alert queue (the pipeline dashboard). Reads [alertsProvider]
 /// (tier-based contract, served from ckyc.db). The retired watchlist/verdict
@@ -191,11 +192,11 @@ class _QueueState extends ConsumerState<_Queue> {
         Text('Alert Queue',
             style: Theme.of(context)
                 .textTheme
-                .headlineMedium
-                ?.copyWith(fontWeight: FontWeight.w600)),
+                .headlineLarge
+                ?.copyWith(fontWeight: FontWeight.w700, fontSize: 36)),
         const SizedBox(height: 4),
         Text(
-            '${_filtered.length} of ${widget.items.length} alerts · sorted by risk (tier × exposure)',
+            '${_filtered.length} of ${widget.items.length} alerts',
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
         const SizedBox(height: 16),
         Wrap(
@@ -237,6 +238,7 @@ class _QueueState extends ConsumerState<_Queue> {
                 icon: Icons.file_download_outlined,
                 label: 'Export',
                 onTap: _export),
+            const ModeToggle(),
           ],
         ),
       ],
@@ -508,7 +510,7 @@ class _AlertRow extends StatelessWidget {
               isDark ? const Color(0xFF16161A) : scheme.surfaceContainerLowest,
           borderRadius: BorderRadius.circular(16),
           border:
-              Border.all(color: scheme.outlineVariant.withValues(alpha: 0.5)),
+              Border.all(color: scheme.outlineVariant),
           boxShadow: [
             BoxShadow(
               color: scheme.shadow.withValues(alpha: 0.04),
@@ -523,23 +525,6 @@ class _AlertRow extends StatelessWidget {
               flex: 4,
               child: Row(
                 children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: scheme.surfaceContainerHigh,
-                      border: Border.all(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.transparent),
-                    ),
-                    child: Icon(
-                        _isCompany ? Icons.business : Icons.person_outline,
-                        size: 20,
-                        color: scheme.secondary),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -547,7 +532,7 @@ class _AlertRow extends StatelessWidget {
                       children: [
                         Text(alert.name,
                             style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 15),
+                                fontWeight: FontWeight.w700, fontSize: 18),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),

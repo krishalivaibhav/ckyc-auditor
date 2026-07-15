@@ -99,12 +99,69 @@ The six-screen dashboard reads the pipeline sink through the adapter (`:8787`):
 All three read live from `ckyc.db`; the retired schema.md severity/verdict model
 is gone. Reads use `/api/entity/{cid}` + `/timeline` + `/case`.
 
+**SAR PDF download** — "Download PDF" on the SAR draft screen hits
+`/api/entity/{client_id}/sar/pdf`. The read-API fills `casefile_sar_exact_template.html`
+(repo root) with the case's SAR — section text, subject identity, dates — and
+prints it to PDF via headless Chrome (`--headless=new --print-to-pdf=`), the
+same browser `flutter run -d chrome` already requires, so no new pip
+dependency. Fields the pipeline doesn't produce (phone numbers, the human
+`received_by` sign-off) render as blank fill-boxes rather than invented data.
+Disabled in `--dart-define=USE_DEMO_DATA=true` mode (no sink to render from).
+
+## Reviewer write-back (the human loop)
+
+The dashboard is read-only except for the reviewer's terminal decision, which
+writes straight to the same sink the pipeline persists to:
+
+- **Case detail** → *Blacklist entity* / *Dismiss as false positive*
+- **SAR draft** → *Approve & file* / *Deny*
+
+Both POST to the read-API (`POST /api/case/{id}/review`, `POST /api/case/{id}/sar/review`,
+JSON `{action, note?, reviewer}`). The write is atomic: UPDATE the Case (status +
+JSON blob, incl. `decision` and an appended `reviewer_actions` entry), sync the
+`sars` status column, and INSERT exactly one `audit_events` row as `human:{reviewer}`.
+The append-only triggers forbid UPDATE/DELETE on `audit_events` (verified: a direct
+UPDATE raises `audit_events is append-only`) — the write path only ever INSERTs.
+On success the Flutter repo fires its `changes` stream so the queue, case, and audit
+screens re-fetch. A **dismissed** case leaves the active alert queue (like a
+suppression) but stays reachable directly; a **blacklisted** entity stays (status
+ESCALATED — it's retained for filing).
+
+## Live / test mode — the judges' demo
+
+The dashboard defaults to **LIVE** (real pipeline sink). The LIVE/TEST toggle on
+the alert queue flips to the scripted **Vijay Mallya scenario**
+(`investigation_agent/api/demo.py`), which drives the REAL agent functions —
+resolver ladder, `verify_hit`, `investigate`, `build_case` — against a separate
+demo sink (`ckyc_demo.db`; the live DB is never touched) while narrating every
+hand-off to the backend terminal:
+
+1. **Toggle → TEST** (phase 1): the news agent catches Kingfisher's default,
+   ambiguity matches the name to the book (no watchlist entry yet),
+   investigation honestly reports no corroborating identifier → **EDD** case,
+   SAR v1. The queue refreshes to the single entity.
+2. **Time skip +15 months** (button on the case page, test mode only): two more
+   articles (Supreme Court, ED/PMLA), then the SEBI debarment lands with a PAN —
+   sanctions agent fires, ambiguity confirms **PAN_EXACT (1.00)**, investigation
+   corroborates → **CRITICAL**, 8-event timeline, SAR v2 (92% coverage, one
+   claim excluded as unverifiable) → downloadable PDF.
+3. **Toggle → LIVE** restores the real data instantly.
+
+Wiring: read-API keeps the mode (`GET/POST /api/mode`, `POST /api/demo/timeskip`)
+and re-points ALL reads (and the SAR PDF + reviewer writes) at the demo sink in
+test mode; the scenario itself runs in the pipeline service (`/demo/start`,
+`/demo/timeskip`), so the narration appears in the `run_backend.sh` terminal.
+`DEMO_FAST=1` collapses the narration pacing (used by automated tests).
+The 15 months is the real gap between the first default reporting and the
+regulatory debarment.
+
 ## Notes / next
 
-- **Reviewer write-back** (approve/deny → flip Case status + append audit row in one
-  transaction) is the remaining loop — the SAR/case views render read-only for now
-  (the `ApiRepository` write methods still throw; wiring them needs a POST endpoint
-  on the read-API + a `store.py` transactional writer).
+- **Pipeline restart caveat:** the pipeline re-seeds the sink on boot (drops tables),
+  so reviewer decisions written after a run are lost on the next `./run_backend.sh` —
+  inherent to the demo-sink design, fine for a demo.
+- The retired schema.md ingest form (`ingestEntity`) and draft-report review
+  (`reviewReport`) still throw — they belong to the removed severity model.
 - `core/scoring.py` is still the golden-fixture stub; when Vaibhav ships `assess()`,
   tiers respond to live signals instead of fixtures. The seam is already wired.
 - With a `GROQ_API_KEY` in `news_agent/signals/.env` the news ER/triage goes LLM;

@@ -9,25 +9,45 @@ into the JSON the Dart models already parse. No data of its own, no writes.
 
     pipeline service (:8001)  ->  ckyc.db  ->  THIS (:8787)  ->  Flutter
 
-Standard library only. Endpoints (all GET):
+Standard library only (the SAR-to-PDF route shells out to the Chrome/Chromium
+binary the demo already requires for `flutter run -d chrome` — no pip deps).
+Endpoints (all GET):
     /api/health
     /api/alerts?tier=&status=      alert queue        (cases with tier != NONE)
     /api/entity/{client_id}        Entity 360         (customer + assessment + candidate)
     /api/entity/{client_id}/timeline
     /api/entity/{client_id}/case   the case for a client (no case_id needed)
+    /api/entity/{client_id}/sar/pdf  the SAR rendered into casefile_sar_exact_template.html, as a PDF download
     /api/case/{case_id}            evidence three-column + SAR + reviewer actions
     /api/case/{case_id}/sar
     /api/audit?object_id=
     /api/suppressions              REJECTED candidates with their reasons
     /api/metrics                   measured eval numbers (baseline vs ours)
 
+Writes (POST, JSON body) — the reviewer's terminal decision, straight to the sink:
+    /api/case/{case_id}/review       {action: BLACKLIST|DISMISS, note?, reviewer}
+    /api/case/{case_id}/sar/review   {action: APPROVE|DENY, note?, reviewer}
+
+Live/test mode — the judges' demo (see investigation_agent/api/demo.py):
+    GET  /api/mode                   {mode, phase}
+    POST /api/mode                   {mode: live|test} — test (re)runs the scripted
+                                     scenario and re-points ALL reads at ckyc_demo.db
+    POST /api/demo/timeskip          advance the test scenario +15 months
+
 Run:  python3 api/server.py [--port 8787]
       CKYC_DB=/path/to/ckyc.db overrides the sink location.
+      CHROME_BIN=/path/to/chrome overrides the PDF-render browser.
 """
 import argparse
 import json
 import os
+import re
+import shutil
 import sqlite3
+import subprocess
+import tempfile
+import uuid
+from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -43,6 +63,38 @@ DB = (Path(os.environ["CKYC_DB"]) if os.environ.get("CKYC_DB")
       else _PIPELINE_SINK if _PIPELINE_SINK.exists()
       else ROOT / "ckyc.db")
 
+# ── live/test mode ────────────────────────────────────────────────────────────
+# LIVE serves the pipeline's real sink (DB above). TEST serves the scripted demo
+# scenario's own sink, produced by the pipeline service's /demo endpoints (see
+# investigation_agent/api/demo.py). Toggling to test triggers the scenario run —
+# the backend terminal narrates the agent flow while this API re-points reads.
+DEMO_DB = Path(os.environ.get("CKYC_DEMO_DB",
+                              ROOT / "investigation_agent" / "ckyc_demo.db"))
+PIPELINE_URL = os.environ.get("PIPELINE_URL", "http://127.0.0.1:8001")
+_MODE = "live"    # "live" | "test"
+_PHASE = 0        # 0 = not started, 1 = first news, 2 = after the time skip
+
+
+def current_db() -> Path:
+    return DEMO_DB if _MODE == "test" else DB
+
+
+def _pipeline_post(path: str, timeout: float = 180.0) -> dict:
+    """Forward a demo trigger to the pipeline service (it owns the agents and
+    the narration). stdlib-only, like the rest of this server."""
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(f"{PIPELINE_URL}{path}", data=b"{}",
+                                 headers={"Content-Type": "application/json"},
+                                 method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return json.loads(resp.read() or b"{}")
+    except urllib.error.URLError as e:
+        raise RuntimeError(
+            f"pipeline service unreachable at {PIPELINE_URL}{path}: {e}. "
+            "Is the pipeline running? (./run_backend.sh starts it)")
+
 # Measured by eval/evaluate.py in the pipeline repo (realistic cohort):
 # baseline naive name screening vs the ER ladder. alerts = fp / (1 - precision).
 METRICS = {
@@ -55,12 +107,16 @@ _SAR_STATUS = {"DRAFT": "draft", "APPROVED": "approved", "REJECTED": "denied"}
 
 
 def connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(f"file:{DB}?mode=ro", uri=True)
+    conn = sqlite3.connect(f"file:{current_db()}?mode=ro", uri=True)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 class NotFound(Exception):
+    pass
+
+
+class BadRequest(Exception):
     pass
 
 
@@ -133,7 +189,10 @@ def _candidate(c: dict) -> dict | None:
         "candidate_id": pick.get("watchlist_id") or pick["candidate_id"],
         "matched_name": f.get("matched_on")
             or (c.get("customer") or {}).get("client_name", ""),
-        "matched_pan": f.get("watchlist_pan"),
+        # Rejects carry the entry's PAN as watchlist_pan; a PAN_EXACT confirm
+        # records pan_match+customer_pan (the two are equal by definition).
+        "matched_pan": f.get("watchlist_pan")
+            or (f.get("customer_pan") if f.get("pan_match") else None),
         "matched_type": _cust(c)["type"],
         "list_name": f.get("list") or pick.get("watchlist_id") or "watchlist",
         "match_method": pick.get("match_method", "?"),
@@ -210,6 +269,105 @@ def _sar(c: dict) -> dict | None:
             "status": _SAR_STATUS.get(str(s.get("status", "DRAFT")).upper(), "draft")}
 
 
+# ── SAR -> filled PDF (casefile_sar_exact_template.html) ──────────────────────
+SAR_TEMPLATE = ROOT / "casefile_sar_exact_template.html"
+
+
+def _esc(v) -> str:
+    if v is None:
+        return ""
+    return (str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
+def _fmt_dt(iso: str | None) -> tuple[str, str]:
+    if not iso:
+        return "", ""
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except ValueError:
+        return str(iso), ""
+    return dt.strftime("%d %b %Y"), dt.strftime("%H:%M")
+
+
+def _sar_template_fields(c: dict) -> dict[str, str]:
+    """Map a persisted Case blob -> casefile_sar_exact_template.html placeholders.
+
+    Every value here is either pipeline output or left blank — nothing is
+    invented for fields the pipeline doesn't produce (phone numbers, the
+    human `received_by` sign-off): those render as empty fill-boxes for a
+    reviewer to complete by hand, same as the paper form would."""
+    sar = c.get("sar") or {}
+    sections = sar.get("sections") or {}
+    cust = _cust(c)
+    date_str, time_str = _fmt_dt(sar.get("drafted_at") or c.get("opened_at"))
+    affiliation = cust["type"] + (f" · {cust['city']}" if cust.get("city") else "")
+    return {
+        "incident_date": date_str,
+        "incident_time": time_str,
+        "incident_location": cust.get("city") or "",
+        "sections.basis_for_suspicion": sections.get("basis_for_suspicion", ""),
+        "subject_name": cust.get("name", ""),
+        "subject_affiliation": affiliation,
+        "subject_phone": "",
+        "sections.subject_identification": sections.get("subject_identification", ""),
+        "reporting_party_name": "TechMKYC Autonomous Compliance System",
+        "reporting_party_agency": "Continuous KYC Auditor — Investigation Agent",
+        "reporting_party_phone": "",
+        "received_by": "",
+        "received_datetime": "",
+        "forwarded_datetime": "",
+    }
+
+
+def _find_browser() -> str | None:
+    env = os.environ.get("CHROME_BIN")
+    if env and shutil.which(env):
+        return shutil.which(env)
+    for name in ("google-chrome-stable", "google-chrome", "chromium-browser",
+                 "chromium", "chrome"):
+        path = shutil.which(name)
+        if path:
+            return path
+    return None
+
+
+def render_sar_pdf(c: dict) -> tuple[bytes, str]:
+    """Fill the template with this case's SAR, then print it to PDF via a
+    headless browser (the same Chrome `flutter run -d chrome` already needs —
+    no extra pip dependency for PDF rendering)."""
+    if not c.get("sar"):
+        raise NotFound(f"no SAR drafted for case {c['case_id']}")
+    html = SAR_TEMPLATE.read_text(encoding="utf-8")
+    for key, val in _sar_template_fields(c).items():
+        html = html.replace("{{" + key + "}}", _esc(val))
+
+    browser = _find_browser()
+    if not browser:
+        raise RuntimeError(
+            "No Chrome/Chromium binary found to render the PDF. Install "
+            "google-chrome or chromium (or set CHROME_BIN) — the same "
+            "browser `flutter run -d chrome` uses.")
+
+    tmp_dir = Path(tempfile.mkdtemp(prefix="sar_"))
+    try:
+        html_path = tmp_dir / "sar.html"
+        pdf_path = tmp_dir / "sar.pdf"
+        html_path.write_text(html, encoding="utf-8")
+        cmd = [browser, "--headless=new", "--disable-gpu", "--no-sandbox",
+               f"--print-to-pdf={pdf_path}", "--print-to-pdf-no-header",
+               "--no-pdf-header-footer", html_path.as_uri()]
+        proc = subprocess.run(cmd, capture_output=True, timeout=25)
+        if proc.returncode != 0 or not pdf_path.exists():
+            raise RuntimeError("PDF render failed: "
+                                f"{proc.stderr.decode(errors='replace')[:500]}")
+        data = pdf_path.read_bytes()
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    safe_name = re.sub(r"[^A-Za-z0-9_-]+", "_", _cust(c)["name"] or c["client_id"])
+    return data, f"SAR_{safe_name}_{c['case_id']}.pdf"
+
+
 def _case(c: dict) -> dict:
     return {"case_id": c["case_id"], "client_id": c["client_id"],
             "customer": _cust(c), "assessment": _assessment(c),
@@ -239,7 +397,13 @@ def alerts(conn, q) -> list[dict]:
     for c in _blobs(conn):
         if c.get("tier") in (None, "NONE"):      # nothing raised -> not an alert
             continue
-        if c.get("status", "").lower() == "suppressed":  # refused -> not an alert
+        st = c.get("status", "").lower()
+        if st == "suppressed":                   # refused by the system -> not an alert
+            continue
+        # A reviewer's terminal calls also leave the ACTIVE queue: a dismissed
+        # false positive is resolved; a blacklisted entity stays (it's escalated
+        # for filing, status ESCALATED, so it never hits this branch).
+        if st == "dismissed" or c.get("decision") == "dismissed":
             continue
         a = _alert(c)
         if tier and a["tier"] != tier:
@@ -306,6 +470,111 @@ def suppressions(conn) -> list[dict]:
     return out
 
 
+# ── writes: reviewer decisions (the ONE mutation path) ───────────────────────
+# The dashboard is read-only except for the human reviewer's terminal decision.
+# These write straight to the SAME sink the pipeline persists to, honouring the
+# append-only audit trail: UPDATE the Case (status + JSON blob), keep the SAR
+# row's status in sync, and INSERT exactly one audit_events row — all atomically.
+# The append-only triggers forbid UPDATE/DELETE on audit_events; we only INSERT.
+_ENTITY_ACTIONS = {   # action -> (case.decision, case.status, audit action)
+    "BLACKLIST": ("blacklisted", "ESCALATED", "CASE_BLACKLISTED"),
+    "DISMISS": ("dismissed", "DISMISSED", "CASE_DISMISSED"),
+}
+_SAR_REVIEW = {       # action -> (sar.status, case.status | None = keep, audit action)
+    "APPROVE": ("APPROVED", "ESCALATED", "SAR_APPROVED"),
+    "DENY": ("REJECTED", None, "SAR_REJECTED"),
+}
+
+
+def connect_rw() -> sqlite3.Connection:
+    conn = sqlite3.connect(f"file:{current_db()}?mode=rw", uri=True)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _append_audit(conn, actor, action, object_type, object_id, before, after,
+                  rationale):
+    conn.execute(
+        "INSERT INTO audit_events"
+        "(audit_id,at,actor,action,object_type,object_id,before,after,rationale)"
+        " VALUES (?,?,?,?,?,?,?,?,?)",
+        (str(uuid.uuid4()), _now_iso(), actor, action, object_type, object_id,
+         json.dumps(before) if before is not None else None,
+         json.dumps(after) if after is not None else None, rationale))
+
+
+def review_case(case_id: str, action: str, note: str, reviewer: str) -> dict:
+    """Reviewer's terminal decision on the entity (blacklist / dismiss)."""
+    action = (action or "").upper()
+    if action not in _ENTITY_ACTIONS:
+        raise BadRequest(f"unknown case action {action!r}")
+    decision, new_status, audit_action = _ENTITY_ACTIONS[action]
+    conn = connect_rw()
+    try:
+        row = conn.execute("SELECT data, status FROM cases WHERE case_id=?",
+                           (case_id,)).fetchone()
+        if not row:
+            raise NotFound(f"case {case_id}")
+        blob = json.loads(row["data"])
+        before = {"status": row["status"], "decision": blob.get("decision")}
+        blob["decision"] = decision
+        blob["status"] = new_status
+        blob.setdefault("reviewer_actions", []).append(
+            {"action": action, "note": note, "reviewer": reviewer, "at": _now_iso()})
+        after = {"status": new_status, "decision": decision}
+        with conn:
+            conn.execute("UPDATE cases SET status=?, data=? WHERE case_id=?",
+                         (new_status, json.dumps(blob), case_id))
+            _append_audit(conn, f"human:{reviewer}", audit_action, "Case", case_id,
+                          before, after, note or f"{decision} by {reviewer}")
+        return {"ok": True, "case_id": case_id, "decision": decision,
+                "status": new_status}
+    finally:
+        conn.close()
+
+
+def review_sar(case_id: str, action: str, note: str, reviewer: str) -> dict:
+    """Reviewer's decision on the drafted SAR (approve / deny)."""
+    action = (action or "").upper()
+    if action not in _SAR_REVIEW:
+        raise BadRequest(f"unknown SAR action {action!r}")
+    sar_status, case_status, audit_action = _SAR_REVIEW[action]
+    conn = connect_rw()
+    try:
+        row = conn.execute("SELECT data, status FROM cases WHERE case_id=?",
+                           (case_id,)).fetchone()
+        if not row:
+            raise NotFound(f"case {case_id}")
+        blob = json.loads(row["data"])
+        sar = blob.get("sar")
+        if not sar:
+            raise NotFound(f"no SAR drafted for case {case_id}")
+        before = {"sar_status": sar.get("status"), "status": row["status"]}
+        sar["status"] = sar_status
+        new_case_status = case_status or row["status"]
+        blob["status"] = new_case_status
+        blob.setdefault("reviewer_actions", []).append(
+            {"action": action, "note": note, "reviewer": reviewer, "at": _now_iso()})
+        after = {"sar_status": sar_status, "status": new_case_status}
+        with conn:
+            conn.execute("UPDATE cases SET status=?, data=? WHERE case_id=?",
+                         (new_case_status, json.dumps(blob), case_id))
+            # Keep the standalone sars row's status column honest (UI reads the
+            # Case blob, but the queryable table shouldn't drift).
+            conn.execute("UPDATE sars SET status=? WHERE case_id=?",
+                         (sar_status, case_id))
+            _append_audit(conn, f"human:{reviewer}", audit_action, "SAR", case_id,
+                          before, after, note or f"SAR {sar_status.lower()} by {reviewer}")
+        return {"ok": True, "case_id": case_id, "sar_status": sar_status,
+                "status": new_case_status}
+    finally:
+        conn.close()
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "ckyc-read-api/2.0"
 
@@ -316,19 +585,110 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def _send_pdf(self, data: bytes, filename: str):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/pdf")
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(data)
+
     def do_OPTIONS(self):
         self._send(204, {})
+
+    def _read_json(self) -> dict:
+        length = int(self.headers.get("Content-Length", 0) or 0)
+        raw = self.rfile.read(length) if length else b""
+        if not raw:
+            return {}
+        try:
+            body = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise BadRequest(f"invalid JSON body: {e}")
+        if not isinstance(body, dict):
+            raise BadRequest("JSON body must be an object")
+        return body
+
+    def do_POST(self):
+        u = urlparse(self.path)
+        parts = [unquote(p) for p in u.path.strip("/").split("/") if p]
+        try:
+            body = self._read_json()
+            result = self._route_post(parts, body)
+            if result is _UNHANDLED:
+                return self._send(404,
+                                  {"error": f"no route for POST /{'/'.join(parts)}"})
+            self._send(200, result)
+        except BadRequest as e:
+            self._send(400, {"error": str(e)})
+        except NotFound as e:
+            self._send(404, {"error": str(e)})
+        except sqlite3.OperationalError as e:
+            self._send(503, {"error": f"sink not writable at {current_db()}: {e}"})
+        except RuntimeError as e:   # pipeline unreachable etc.
+            self._send(502, {"error": str(e)})
+        except Exception as e:  # noqa: BLE001
+            self._send(500, {"error": repr(e)})
+
+    def _route_post(self, parts, body):
+        global _MODE, _PHASE
+        # /api/mode                         switch live <-> test (test runs the scenario)
+        # /api/demo/timeskip                advance the test scenario +15 months
+        # /api/case/{case_id}/review        entity blacklist / dismiss
+        # /api/case/{case_id}/sar/review    SAR approve / deny
+        if parts == ["api", "mode"]:
+            mode = str(body.get("mode") or "").lower()
+            if mode not in ("live", "test"):
+                raise BadRequest(f"mode must be 'live' or 'test', got {mode!r}")
+            if mode == "test":
+                # (Re)start the scripted scenario — the pipeline terminal
+                # narrates the agent flow; we re-point reads at the demo sink.
+                result = _pipeline_post("/demo/start")
+                _MODE, _PHASE = "test", int(result.get("phase", 1))
+            else:
+                _MODE, _PHASE = "live", 0
+            return {"mode": _MODE, "phase": _PHASE}
+
+        if parts == ["api", "demo", "timeskip"]:
+            if _MODE != "test":
+                raise BadRequest("time skip only works in test mode")
+            result = _pipeline_post("/demo/timeskip")
+            _PHASE = int(result.get("phase", 2))
+            return {"mode": _MODE, "phase": _PHASE}
+
+        if len(parts) >= 3 and parts[0] == "api" and parts[1] == "case":
+            reviewer = str(body.get("reviewer") or "unknown")
+            note = str(body.get("note") or "")
+            match parts[2:]:
+                case [cid, "review"]:
+                    return review_case(cid, body.get("action"), note, reviewer)
+                case [cid, "sar", "review"]:
+                    return review_sar(cid, body.get("action"), note, reviewer)
+        return _UNHANDLED
 
     def do_GET(self):
         u = urlparse(self.path)
         parts = [unquote(p) for p in u.path.strip("/").split("/") if p]
         q = parse_qs(u.query)
         try:
+            # The PDF route returns bytes, not JSON — handled outside _route.
+            if len(parts) == 5 and parts[0] == "api" and parts[1] == "entity" \
+                    and parts[3:] == ["sar", "pdf"]:
+                conn = connect()
+                try:
+                    blob = _blob_for_client(conn, parts[2])
+                finally:
+                    conn.close()
+                data, filename = render_sar_pdf(blob)
+                return self._send_pdf(data, filename)
+
             conn = connect()
             try:
                 payload = self._route(parts, q, conn)
@@ -342,6 +702,8 @@ class Handler(BaseHTTPRequestHandler):
         except sqlite3.OperationalError as e:
             self._send(503, {"error": f"pipeline sink not ready at {DB}: {e}. "
                                       "Start the pipeline service first."})
+        except RuntimeError as e:
+            self._send(500, {"error": str(e)})
         except Exception as e:  # noqa: BLE001
             self._send(500, {"error": repr(e)})
 
@@ -350,7 +712,11 @@ class Handler(BaseHTTPRequestHandler):
             return _UNHANDLED
         match parts[1:]:
             case ["health"]:
-                return {"status": "ok", "sink": str(DB), "sink_exists": DB.exists()}
+                db = current_db()
+                return {"status": "ok", "mode": _MODE, "sink": str(db),
+                        "sink_exists": db.exists()}
+            case ["mode"]:
+                return {"mode": _MODE, "phase": _PHASE}
             case ["alerts"]:
                 return alerts(conn, q)
             case ["entity", cid]:

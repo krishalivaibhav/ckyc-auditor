@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Suspicious Activity Report</title>
+  <style>
+    :root {
+      --border: #333;
+      --shade: #f2f3fc;
+      --ink: #111;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px 0 32px;
+      background: #fff;
+      color: var(--ink);
+      font-family: "Times New Roman", Times, serif;
+    }
+    .page {
+      width: 1040px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 18px;
+      text-align: center;
+      font-size: 28px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin: 0 0 22px;
+      border: 1px solid var(--border);
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 3px 6px;
+      font-size: 16px;
+      line-height: 1.1;
+      vertical-align: top;
+    }
+    th {
+      text-align: center;
+      font-weight: 700;
+      background: #fff;
+      font-size: 18px;
+      padding: 2px 4px;
+    }
+    .label {
+      font-weight: 700;
+    }
+    .fill {
+      background: var(--shade);
+      min-height: 24px;
+    }
+    .fill.medium { min-height: 40px; }
+    .fill.large { min-height: 60px; }
+    .fill.xlarge { min-height: 84px; }
+    .row-tight td { height: 28px; }
+    .row-medium td { height: 42px; }
+    .row-large td { height: 72px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Suspicious Activity Report</h1>
+
+    <table>
+      <colgroup>
+        <col style="width: 180px;">
+        <col style="width: 260px;">
+        <col style="width: 120px;">
+        <col style="width: 480px;">
+      </colgroup>
+      <tr><th colspan="4">Incident Description</th></tr>
+      <tr class="row-tight">
+        <td class="label">Date</td>
+        <td class="fill">{{incident_date}}</td>
+        <td class="label">Time</td>
+        <td class="fill">{{incident_time}}</td>
+      </tr>
+      <tr class="row-medium">
+        <td class="label">Location/ Area Affected:</td>
+        <td colspan="3" class="fill medium">{{incident_location}}</td>
+      </tr>
+      <tr class="row-large">
+        <td class="label">Suspicious Activity:</td>
+        <td colspan="3" class="fill xlarge">{{sections.basis_for_suspicion}}</td>
+      </tr>
+    </table>
+
+    <table>
+      <colgroup>
+        <col style="width: 280px;">
+        <col style="width: 760px;">
+      </colgroup>
+      <tr class="row-tight">
+        <td class="label">Suspected Person<br>or Party</td>
+        <td class="fill">{{subject_name}}</td>
+      </tr>
+      <tr class="row-medium">
+        <td class="label">Address or<br>Affiliation</td>
+        <td class="fill medium">{{subject_affiliation}}</td>
+      </tr>
+      <tr class="row-tight">
+        <td class="label">Phone</td>
+        <td class="fill">{{subject_phone}}</td>
+      </tr>
+      <tr class="row-medium">
+        <td class="label">Other Identifying<br>Characteristics</td>
+        <td class="fill medium">{{sections.subject_identification}}</td>
+      </tr>
+    </table>
+
+    <table>
+      <colgroup>
+        <col style="width: 280px;">
+        <col style="width: 760px;">
+      </colgroup>
+      <tr><th colspan="2">Reporting Party</th></tr>
+      <tr class="row-tight">
+        <td class="label">Name</td>
+        <td class="fill">{{reporting_party_name}}</td>
+      </tr>
+      <tr class="row-tight">
+        <td class="label">Agency</td>
+        <td class="fill">{{reporting_party_agency}}</td>
+      </tr>
+      <tr class="row-tight">
+        <td class="label">Phone</td>
+        <td class="fill">{{reporting_party_phone}}</td>
+      </tr>
+    </table>
+
+    <table>
+      <colgroup>
+        <col style="width: 280px;">
+        <col style="width: 760px;">
+      </colgroup>
+      <tr><th colspan="2">Receiving Entity Use</th></tr>
+      <tr class="row-tight">
+        <td class="label">Received By</td>
+        <td class="fill">{{received_by}}</td>
+      </tr>
+      <tr class="row-tight">
+        <td class="label">Received Date and Time</td>
+        <td class="fill">{{received_datetime}}</td>
+      </tr>
+      <tr class="row-tight">
+        <td class="label">Forwarded Date and Time</td>
+        <td class="fill">{{forwarded_datetime}}</td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>

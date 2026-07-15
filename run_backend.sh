@@ -77,5 +77,10 @@ echo "  news agent http://127.0.0.1:${NEWS_PORT}/docs   (scan every \$SCAN_INTER
 echo "  dashboard  http://127.0.0.1:${READ_PORT}/api/alerts"
 echo
 echo "Now run the dashboard:  flutter run -d chrome"
+echo
+echo "Judges' demo: toggle LIVE -> TEST on the dashboard. This terminal will"
+echo "narrate the scripted Vijay Mallya scenario (news agent -> ambiguity ->"
+echo "investigation); the 'Time skip +15 months' button on the case page runs"
+echo "phase 2 (two more articles + the SEBI sanction -> CRITICAL + SAR)."
 echo "Ctrl-C stops all services."
 wait

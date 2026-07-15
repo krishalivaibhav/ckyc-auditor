@@ -19,9 +19,16 @@ class ResponsiveScaffold extends ConsumerWidget {
   static const List<({String path, List<List<dynamic>> icon, String label})> _tabs = [
     (path: '/entities', icon: HugeIcons.strokeRoundedView, label: 'Alert Queue'),
     (path: '/audit', icon: HugeIcons.strokeRoundedCheckList, label: 'Audit Log'),
+    (path: '/reports', icon: HugeIcons.strokeRoundedFile01, label: 'Reports'),
+    (path: '/settings', icon: HugeIcons.strokeRoundedSettings01, label: 'Settings'),
   ];
 
-  int get _index => location.startsWith('/audit') ? 1 : 0;
+  int get _index {
+    if (location.startsWith('/audit')) return 1;
+    if (location.startsWith('/reports')) return 2;
+    if (location.startsWith('/settings')) return 3;
+    return 0;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,18 +36,7 @@ class ResponsiveScaffold extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
-    final body = Column(
-      children: [
-        _TopNavBar(location: location),
-        Expanded(
-          child: Stack(
-            children: [
-              child,
-            ],
-          ),
-        ),
-      ],
-    );
+    final body = child;
 
     if (wide) {
       return Scaffold(
@@ -195,192 +191,3 @@ class _RailHeader extends StatelessWidget {
   }
 }
 
-class _TopNavBar extends StatelessWidget {
-  final String location;
-  const _TopNavBar({required this.location});
-
-  void _comingSoon(BuildContext context, String label) =>
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$label — coming soon')));
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onWatchlist = location.startsWith('/entities');
-    final onAudit = location.startsWith('/audit');
-
-    return Container(
-      height: 64,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0A0A0C) : scheme.surfaceContainerLowest,
-        border: Border(
-            bottom: BorderSide(
-                color: scheme.outlineVariant.withValues(alpha: 0.5))),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _TopNavItem(
-                    icon: HugeIcons.strokeRoundedView,
-                    label: 'Alert Queue',
-                    isSelected: onWatchlist,
-                    onTap: () => context.go('/entities')),
-                _TopNavItem(
-                    icon: HugeIcons.strokeRoundedCheckList,
-                    label: 'Audit Log',
-                    isSelected: onAudit,
-                    onTap: () => context.go('/audit')),
-                _TopNavItem(
-                    icon: HugeIcons.strokeRoundedShield01,
-                    label: 'Investigations',
-                    onTap: () => _comingSoon(context, 'Investigations')),
-                _TopNavItem(
-                    icon: HugeIcons.strokeRoundedFile01,
-                    label: 'Reports',
-                    onTap: () => _comingSoon(context, 'Reports')),
-                _TopNavItem(
-                    icon: HugeIcons.strokeRoundedSettings01,
-                    label: 'Settings',
-                    onTap: () => _comingSoon(context, 'Settings')),
-              ],
-            ),
-          ),
-          Row(
-            children: [
-              IconButton(
-                icon: const HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: Colors.grey),
-                tooltip: 'Search the alert queue',
-                onPressed: () => context.go('/entities'),
-              ),
-              const _NotificationsBell(),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// High-risk alert bell: reads the alert queue, shows a dot when any alert is
-/// CRITICAL or HIGH tier, and lists them. Selecting one opens the alert queue.
-class _NotificationsBell extends ConsumerWidget {
-  const _NotificationsBell();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final scheme = Theme.of(context).colorScheme;
-    final highRisk = ref.watch(alertsProvider).maybeWhen(
-          data: (items) => items
-              .where((a) =>
-                  a.tier == RiskTier.critical || a.tier == RiskTier.high)
-              .toList(),
-          orElse: () => const <Alert>[],
-        );
-
-    return PopupMenuButton<String>(
-      tooltip: 'High-risk alerts',
-      position: PopupMenuPosition.under,
-      onSelected: (_) => context.go('/entities'),
-      itemBuilder: (_) => highRisk.isEmpty
-          ? [
-              const PopupMenuItem(
-                  enabled: false, child: Text('No high-risk alerts')),
-            ]
-          : [
-              for (final a in highRisk)
-                PopupMenuItem(
-                  value: a.clientId,
-                  child: Row(children: [
-                    HugeIcon(icon: HugeIcons.strokeRoundedAlert01,
-                        size: 18, color: AppTheme.severityHigh),
-                    const SizedBox(width: 10),
-                    Flexible(
-                        child: Text('${a.name} · ${a.tier.label}',
-                            overflow: TextOverflow.ellipsis)),
-                  ]),
-                ),
-            ],
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            HugeIcon(icon: HugeIcons.strokeRoundedNotification01, size: 24, color: scheme.onSurfaceVariant),
-            if (highRisk.isNotEmpty)
-              Positioned(
-                top: -2,
-                right: -2,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                      color: scheme.error, shape: BoxShape.circle),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _TopNavItem extends StatelessWidget {
-  final List<List<dynamic>> icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _TopNavItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.isSelected = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-              bottom: BorderSide(
-                  color: isSelected ? scheme.primary : Colors.transparent,
-                  width: 2)),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
-            child: Row(
-              children: [
-                HugeIcon(icon: icon,
-                    size: 20,
-                    color:
-                        isSelected ? scheme.primary : scheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: isSelected
-                            ? scheme.primary
-                            : scheme.onSurfaceVariant,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
