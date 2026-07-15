@@ -33,7 +33,7 @@ from uuid import uuid4
 from contracts.models import (AuditEvent, Case, Customer, Evidence, RiskAssessment,
                               SAR, Signal, TimelineEvent, WatchlistEntry)
 from core.blocking import Blocker
-from core.investigate import investigate   # the real investigation agent (Sneha's input)
+from core.investigate import deterministic_adjudicator, investigate  # investigation agent
 from core.resolver import resolve
 from db.store import init_db, persist
 
@@ -175,9 +175,15 @@ def _audit(action, obj_type, obj_id, ts, rationale, n, case_id):
 
 
 # ================================================================ the pipeline
-def run_pipeline(customer: Customer, persist_result: bool = True) -> Case:
+def run_pipeline(customer: Customer, persist_result: bool = True,
+                 use_llm: bool = True) -> Case:
     """Run one customer through the full pipeline and return the resulting Case.
-    With persist_result=True (default), writes Case + SAR + AuditEvents to SQLite."""
+    With persist_result=True (default), writes Case + SAR + AuditEvents to SQLite.
+
+    use_llm controls the investigation stage's reasoning step: True (interactive
+    default, e.g. POST /api/pipeline) allows live Anthropic adjudication when a key
+    is set; False forces the deterministic adjudicator — used by startup seeding so
+    boot makes ZERO API calls even with a key present."""
     watchlist = safe(load_watchlist, default=[], label="load_watchlist")
     signals = safe(fetch_and_triage, customer, default=[], label="fetch_and_triage")
     candidates = safe(_resolve_stage, customer, watchlist, default=[], label="resolve")
@@ -195,8 +201,14 @@ def run_pipeline(customer: Customer, persist_result: bool = True) -> Case:
         # for a skipped case it simply receives empty evidence.
         needs_investigation = (assessment.tier in ("CRITICAL", "EDD")
                                or any(c.decision == "AMBIGUOUS" for c in candidates))
-        evidence = (safe(investigate, assessment, default=[], label="investigate")
-                    if needs_investigation else [])
+        if needs_investigation:
+            # use_llm=False pins the deterministic adjudicator (no Anthropic call);
+            # use_llm=True lets investigate() choose LLM-vs-fallback by key presence.
+            inv = (investigate if use_llm
+                   else lambda a: investigate(a, adjudicate=deterministic_adjudicator))
+            evidence = safe(inv, assessment, default=[], label="investigate")
+        else:
+            evidence = []
         sar = safe(draft_sar, assessment, evidence, customer, default=None, label="draft_sar")
 
     case = build_case(customer, assessment, sar)
@@ -218,8 +230,12 @@ def run_pipeline(customer: Customer, persist_result: bool = True) -> Case:
     return case
 
 
-def seed_from_fixtures() -> list[Case]:
+def seed_from_fixtures(use_llm: bool = False) -> list[Case]:
     """Rebuild the DB and run every fixture customer through the pipeline. Used by
-    the API on startup and by tests so there are persisted Cases to read."""
+    the API on startup and by tests so there are persisted Cases to read.
+
+    use_llm defaults to False: seeding ALWAYS uses the deterministic adjudicator, so
+    server boot makes zero Anthropic API calls even when a key is set. Live LLM
+    adjudication happens only on an interactive POST /api/pipeline/{id} run."""
     init_db()
-    return [run_pipeline(Customer(**c)) for c in _fx("customers")]
+    return [run_pipeline(Customer(**c), use_llm=use_llm) for c in _fx("customers")]

@@ -90,7 +90,9 @@ def pipeline(client_id: str):
     cust = next((c for c in fx("customers") if c["client_id"] == client_id), None)
     if cust is None:
         raise HTTPException(404, f"no fixture customer {client_id}")
-    return run_pipeline(Customer(**cust)).model_dump(mode="json")
+    # Interactive run: use_llm=True — live Anthropic adjudication for CRITICAL/EDD/
+    # AMBIGUOUS cases when a key is set. (Startup seeding uses the deterministic path.)
+    return run_pipeline(Customer(**cust), use_llm=True).model_dump(mode="json")
 
 
 # ---- ER demo/pitch endpoints (unchanged contract).

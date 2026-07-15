@@ -175,6 +175,11 @@ def _offline_adjudicate(ctx: dict) -> dict:
     return {"verdict": verdict, "findings": findings}
 
 
+# Public handle for callers that must force the keyless deterministic path —
+# e.g. startup seeding, which must make ZERO Anthropic calls even with a key set.
+deterministic_adjudicator = _offline_adjudicate
+
+
 _TOOL = {
     "name": "record_investigation",
     "description": "Record the corroboration findings and the overall verdict.",

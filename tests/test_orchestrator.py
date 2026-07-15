@@ -73,6 +73,33 @@ def test_critical_still_investigates(monkeypatch):
     assert calls["investigate"] == 1        # investigation ran
 
 
+def test_seed_makes_zero_llm_calls_even_with_key(monkeypatch):
+    """Startup seeding must never touch the Anthropic API — even with a key set,
+    the CRITICAL/EDD fixture cases go through the deterministic adjudicator."""
+    import core.investigate as inv
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-should-not-be-used")
+    calls = {"llm": 0}
+    monkeypatch.setattr(inv, "_llm_adjudicate",
+                        lambda ctx: (calls.__setitem__("llm", calls["llm"] + 1)
+                                     or {"verdict": "CORRELATED", "findings": []}))
+    seed_from_fixtures()                      # default use_llm=False
+    assert calls["llm"] == 0
+
+
+def test_interactive_pipeline_uses_llm_when_keyed(monkeypatch):
+    """POST /api/pipeline path (use_llm=True) hits the real LLM for a CRITICAL case."""
+    import core.investigate as inv
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    calls = {"llm": 0}
+    monkeypatch.setattr(inv, "_llm_adjudicate",
+                        lambda ctx: (calls.__setitem__("llm", calls["llm"] + 1)
+                                     or {"verdict": "CORRELATED",
+                                         "findings": [{"status": "CORRELATED", "claim": "x",
+                                                       "confidence": 0.5, "kind": "NEWS_ARTICLE"}]}))
+    run_pipeline(_customer("C1007"), persist_result=False, use_llm=True)   # UAPA -> CRITICAL
+    assert calls["llm"] == 1
+
+
 def test_audit_is_append_only():
     seed_from_fixtures()
     conn = store.connect()
