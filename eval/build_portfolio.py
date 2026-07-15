@@ -213,7 +213,7 @@ def build(n_total, tag):
     def pan(kind, sur):
         while True:
             p = ("".join(random.choice(PAN_L) for _ in range(3)) + kind
-                 + (sur[:1].upper() if sur[:1].isalpha() else "X")
+                 + (sur[:1].upper() if (sur[:1].isascii() and sur[:1].isalpha()) else "X")
                  + f"{random.randint(0,9999):04d}" + random.choice(PAN_L))
             if p not in used:
                 used.add(p)
