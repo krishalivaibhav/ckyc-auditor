@@ -18,3 +18,11 @@ data/entities_ftm_*
 data/senzing_*
 data/targets_simple_*
 data/names_*
+
+# Generated watchlist JSONs
+data/watchlist_canonical.json
+data/watchlist_details.json
+data/watchlist_relationships.json
+data/extra/
+data/targets.simple.csv
+
