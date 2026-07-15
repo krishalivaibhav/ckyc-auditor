@@ -17,7 +17,7 @@ class ResponsiveScaffold extends ConsumerWidget {
       {super.key, required this.child, required this.location});
 
   static const List<({String path, List<List<dynamic>> icon, String label})> _tabs = [
-    (path: '/entities', icon: HugeIcons.strokeRoundedView, label: 'Watchlist'),
+    (path: '/entities', icon: HugeIcons.strokeRoundedView, label: 'Alert Queue'),
     (path: '/audit', icon: HugeIcons.strokeRoundedCheckList, label: 'Audit Log'),
   ];
 
@@ -228,7 +228,7 @@ class _TopNavBar extends StatelessWidget {
               children: [
                 _TopNavItem(
                     icon: HugeIcons.strokeRoundedView,
-                    label: 'Watchlist',
+                    label: 'Alert Queue',
                     isSelected: onWatchlist,
                     onTap: () => context.go('/entities')),
                 _TopNavItem(
@@ -255,7 +255,7 @@ class _TopNavBar extends StatelessWidget {
             children: [
               IconButton(
                 icon: const HugeIcon(icon: HugeIcons.strokeRoundedSearch01, color: Colors.grey),
-                tooltip: 'Search the watchlist',
+                tooltip: 'Search the alert queue',
                 onPressed: () => context.go('/entities'),
               ),
               const _NotificationsBell(),
@@ -267,39 +267,41 @@ class _TopNavBar extends StatelessWidget {
   }
 }
 
-/// High-risk alert bell: reads the watchlist, shows a dot when any entity is
-/// high severity, and lists them in a menu that deep-links to the entity.
+/// High-risk alert bell: reads the alert queue, shows a dot when any alert is
+/// CRITICAL or HIGH tier, and lists them. Selecting one opens the alert queue.
 class _NotificationsBell extends ConsumerWidget {
   const _NotificationsBell();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final highRisk = ref.watch(watchlistProvider).maybeWhen(
-          data: (items) =>
-              items.where((d) => d.topSeverity == 'high').toList(),
-          orElse: () => const <EntityDetail>[],
+    final highRisk = ref.watch(alertsProvider).maybeWhen(
+          data: (items) => items
+              .where((a) =>
+                  a.tier == RiskTier.critical || a.tier == RiskTier.high)
+              .toList(),
+          orElse: () => const <Alert>[],
         );
 
     return PopupMenuButton<String>(
       tooltip: 'High-risk alerts',
       position: PopupMenuPosition.under,
-      onSelected: (id) => context.push('/entities/$id'),
+      onSelected: (_) => context.go('/entities'),
       itemBuilder: (_) => highRisk.isEmpty
           ? [
               const PopupMenuItem(
                   enabled: false, child: Text('No high-risk alerts')),
             ]
           : [
-              for (final d in highRisk)
+              for (final a in highRisk)
                 PopupMenuItem(
-                  value: d.entity.entityId,
+                  value: a.clientId,
                   child: Row(children: [
                     HugeIcon(icon: HugeIcons.strokeRoundedAlert01,
                         size: 18, color: AppTheme.severityHigh),
                     const SizedBox(width: 10),
                     Flexible(
-                        child: Text(d.entity.name,
+                        child: Text('${a.name} · ${a.tier.label}',
                             overflow: TextOverflow.ellipsis)),
                   ]),
                 ),

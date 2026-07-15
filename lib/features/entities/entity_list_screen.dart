@@ -1,66 +1,77 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../core/breakpoints.dart';
-import '../../core/theme.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
-import '../../widgets/risk_badge.dart';
-import 'ingest_dialog.dart';
 
+/// Screen 1 — the alert queue (the pipeline dashboard). Reads [alertsProvider]
+/// (tier-based contract, served from ckyc.db). The retired watchlist/verdict
+/// screens are gone; drill-down (Entity 360 / case / SAR) lands in a later phase.
 class EntityListScreen extends ConsumerWidget {
   const EntityListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(watchlistProvider);
-    final scheme = Theme.of(context).colorScheme;
-
+    final async = ref.watch(alertsProvider);
     return Scaffold(
-      floatingActionButton: Breakpoints.isWide(context)
-          ? FloatingActionButton.extended(
-              onPressed: () => showIngestDialog(context, ref),
-              backgroundColor: scheme.primary,
-              foregroundColor: scheme.onPrimary,
-              icon: const Icon(Icons.add),
-              label: const Text('Ingest entity',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-            )
-          : FloatingActionButton(
-              onPressed: () => showIngestDialog(context, ref),
-              backgroundColor: scheme.primary,
-              foregroundColor: scheme.onPrimary,
-              child: const Icon(Icons.add),
-            ),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(watchlistProvider),
+        onRefresh: () async => ref.invalidate(alertsProvider),
         child: async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => _ErrorView(message: '$e'),
-          data: (items) => _List(items: items),
+          data: (items) => _Queue(items: items),
         ),
       ),
     );
   }
 }
 
-class _List extends ConsumerStatefulWidget {
-  final List<EntityDetail> items;
-  const _List({required this.items});
+// ── formatting helpers ───────────────────────────────────────────────────────
 
-  @override
-  ConsumerState<_List> createState() => _ListState();
+String _inr(double v) {
+  if (v >= 1e7) {
+    final cr = v / 1e7;
+    return '₹${cr.toStringAsFixed(cr % 1 == 0 ? 0 : 2)} Cr';
+  }
+  if (v >= 1e5) {
+    final l = v / 1e5;
+    return '₹${l.toStringAsFixed(l % 1 == 0 ? 0 : 2)} L';
+  }
+  return '₹${v.toStringAsFixed(0)}';
 }
 
-class _ListState extends ConsumerState<_List> {
+String _statusLabel(String s) => s.isEmpty
+    ? '—'
+    : s
+        .split('_')
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+
+Color _tierColor(RiskTier t) => switch (t) {
+      RiskTier.critical => const Color(0xFFDC2626), // red-600
+      RiskTier.high => const Color(0xFFEA580C), // orange-600
+      RiskTier.edd => const Color(0xFFF59E0B), // amber-500
+      RiskTier.eddLite => const Color(0xFF3B82F6), // blue-500
+      RiskTier.monitor => const Color(0xFF10B981), // emerald-500
+      RiskTier.unknown => const Color(0xFF6B7280), // gray-500
+    };
+
+// ── the queue ────────────────────────────────────────────────────────────────
+
+class _Queue extends ConsumerStatefulWidget {
+  final List<Alert> items;
+  const _Queue({required this.items});
+
+  @override
+  ConsumerState<_Queue> createState() => _QueueState();
+}
+
+class _QueueState extends ConsumerState<_Queue> {
   final _searchCtrl = TextEditingController();
   String _query = '';
-  String _jurisdiction = 'all';
+  String _tier = 'all'; // wire value or 'all'
   String _status = 'all';
-  String _risk = 'all';
-  String _dateRange = 'all';
   String _sortCol = 'risk';
   bool _sortAsc = false;
 
@@ -70,57 +81,27 @@ class _ListState extends ConsumerState<_List> {
     super.dispose();
   }
 
-  String _statusKey(EntityDetail d) => d.verdict?.verdict ?? 'unscreened';
-
-  DateTime? _latestEvent(EntityDetail d) => d.riskEvents.isEmpty
-      ? null
-      : d.riskEvents
-          .map((e) => e.detectedAt)
-          .reduce((a, b) => a.isAfter(b) ? a : b);
-
-  List<EntityDetail> get _filtered {
+  List<Alert> get _filtered {
     final q = _query.trim().toLowerCase();
-    final now = DateTime.now();
-    final window = switch (_dateRange) {
-      '24h' => const Duration(hours: 24),
-      '7d' => const Duration(days: 7),
-      '30d' => const Duration(days: 30),
-      _ => null,
-    };
-
-    final list = widget.items.where((d) {
-      final e = d.entity;
-      if (q.isNotEmpty) {
-        final hay = [e.name, e.dinOrCin ?? '', e.nationality ?? '', ...e.aliases]
-            .join(' ')
-            .toLowerCase();
-        if (!hay.contains(q)) return false;
-      }
-      if (_jurisdiction != 'all' && e.nationality != _jurisdiction) return false;
-      if (_status != 'all' && _statusKey(d) != _status) return false;
-      if (_risk != 'all' && d.topSeverity != _risk) return false;
-      if (window != null) {
-        final latest = _latestEvent(d);
-        if (latest == null || now.difference(latest) > window) return false;
-      }
+    final list = widget.items.where((a) {
+      if (q.isNotEmpty && !a.name.toLowerCase().contains(q)) return false;
+      if (_tier != 'all' && a.tier.wire != _tier) return false;
+      if (_status != 'all' && a.status != _status) return false;
       return true;
     }).toList();
 
-    int cmp(EntityDetail a, EntityDetail b) {
+    int cmp(Alert a, Alert b) {
       final int c;
       switch (_sortCol) {
         case 'name':
-          c = a.entity.name.toLowerCase().compareTo(b.entity.name.toLowerCase());
-        case 'id':
-          c = (a.entity.dinOrCin ?? '').compareTo(b.entity.dinOrCin ?? '');
-        case 'jurisdiction':
-          c = AppTheme.countryName(a.entity.nationality)
-              .compareTo(AppTheme.countryName(b.entity.nationality));
+          c = a.name.toLowerCase().compareTo(b.name.toLowerCase());
         case 'status':
-          c = _statusKey(a).compareTo(_statusKey(b));
-        default: // 'risk'
-          c = AppTheme.mockRiskScore(a.topSeverity)
-              .compareTo(AppTheme.mockRiskScore(b.topSeverity));
+          c = a.status.compareTo(b.status);
+        case 'exposure':
+          c = a.exposureInr.compareTo(b.exposureInr);
+        default: // 'risk' — tier rank, then exposure
+          final byTier = a.tier.rank.compareTo(b.tier.rank);
+          c = byTier != 0 ? byTier : a.exposureInr.compareTo(b.exposureInr);
       }
       return _sortAsc ? c : -c;
     }
@@ -134,60 +115,50 @@ class _ListState extends ConsumerState<_List> {
           _sortAsc = !_sortAsc;
         } else {
           _sortCol = col;
-          _sortAsc = col != 'risk'; // risk defaults to highest-first
+          _sortAsc = col == 'name'; // text asc; risk/exposure default high-first
         }
       });
 
   void _clearFilters() => setState(() {
         _query = '';
         _searchCtrl.clear();
-        _jurisdiction = 'all';
+        _tier = 'all';
         _status = 'all';
-        _risk = 'all';
-        _dateRange = 'all';
       });
 
   void _refresh() {
-    ref.invalidate(watchlistProvider);
+    ref.invalidate(alertsProvider);
     ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Refreshing watchlist…')));
+        const SnackBar(content: Text('Refreshing alert queue…')));
   }
 
   void _export() {
     final rows = _filtered;
-    final buf =
-        StringBuffer('Entity Name,ID Number,Jurisdiction,Status,Confidence Level\n');
+    final buf = StringBuffer('Entity,Type,Tier,Status,Exposure (INR)\n');
     String esc(String s) => '"${s.replaceAll('"', '""')}"';
-    for (final d in rows) {
-      final e = d.entity;
+    for (final a in rows) {
       buf.writeln([
-        esc(e.name),
-        esc(e.dinOrCin ?? 'REG-${e.entityId.substring(0, 6).toUpperCase()}'),
-        esc(AppTheme.countryName(e.nationality)),
-        esc(AppTheme.verdictLabel(d.verdict?.verdict)),
-        d.topSeverity == 'none' ? 'None' : '${d.topSeverity[0].toUpperCase()}${d.topSeverity.substring(1)}',
+        esc(a.name),
+        esc(a.type),
+        esc(a.tier.label),
+        esc(_statusLabel(a.status)),
+        a.exposureInr.toStringAsFixed(0),
       ].join(','));
     }
     Clipboard.setData(ClipboardData(text: buf.toString()));
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Copied ${rows.length} entities as CSV to clipboard')));
+        content: Text('Copied ${rows.length} alerts as CSV to clipboard')));
   }
 
   @override
   Widget build(BuildContext context) {
     final rows = _filtered;
-    final jurisdictions = {
-      for (final d in widget.items)
-        if (d.entity.nationality != null) d.entity.nationality!
-    }.toList()
-      ..sort();
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _header(context, jurisdictions),
+          _header(context),
           const SizedBox(height: 20),
           Expanded(
             child: Column(
@@ -200,7 +171,7 @@ class _ListState extends ConsumerState<_List> {
                       : ListView.separated(
                           itemCount: rows.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (_, i) => _EntityRow(detail: rows[i]),
+                          itemBuilder: (_, i) => _AlertRow(alert: rows[i]),
                         ),
                 ),
               ],
@@ -211,19 +182,19 @@ class _ListState extends ConsumerState<_List> {
     );
   }
 
-  Widget _header(BuildContext context, List<String> jurisdictions) {
+  Widget _header(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Entity Watchlist — High Priority',
+        Text('Alert Queue',
             style: Theme.of(context)
                 .textTheme
                 .headlineMedium
                 ?.copyWith(fontWeight: FontWeight.w600)),
         const SizedBox(height: 4),
         Text(
-            '${_filtered.length} of ${widget.items.length} entities under continuous KYC',
+            '${_filtered.length} of ${widget.items.length} alerts · sorted by risk (tier × exposure)',
             style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13)),
         const SizedBox(height: 16),
         Wrap(
@@ -232,48 +203,29 @@ class _ListState extends ConsumerState<_List> {
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             _FilterDropdown(
-              label: 'Date Range',
-              value: _dateRange,
+              label: 'Tier',
+              value: _tier,
               options: const [
-                ('all', 'All time'),
-                ('24h', 'Last 24h'),
-                ('7d', 'Last 7 days'),
-                ('30d', 'Last 30 days'),
+                ('all', 'All tiers'),
+                ('CRITICAL', 'Critical'),
+                ('HIGH', 'High'),
+                ('EDD', 'EDD'),
+                ('EDD_LITE', 'EDD Lite'),
+                ('MONITOR', 'Monitor'),
               ],
-              onSelected: (v) => setState(() => _dateRange = v),
-            ),
-            _FilterDropdown(
-              label: 'Jurisdiction',
-              value: _jurisdiction,
-              options: [
-                ('all', 'All'),
-                for (final j in jurisdictions) (j, AppTheme.countryName(j)),
-              ],
-              onSelected: (v) => setState(() => _jurisdiction = v),
+              onSelected: (v) => setState(() => _tier = v),
             ),
             _FilterDropdown(
               label: 'Status',
               value: _status,
               options: const [
                 ('all', 'All'),
-                ('confirmed_match', 'Confirmed match'),
-                ('needs_review', 'Needs review'),
-                ('false_positive', 'False positive'),
-                ('unscreened', 'Unscreened'),
+                ('open', 'Open'),
+                ('in_review', 'In review'),
+                ('escalated', 'Escalated'),
+                ('closed', 'Closed'),
               ],
               onSelected: (v) => setState(() => _status = v),
-            ),
-            _FilterDropdown(
-              label: 'Risk Level',
-              value: _risk,
-              options: const [
-                ('all', 'All'),
-                ('high', 'High'),
-                ('medium', 'Medium'),
-                ('low', 'Low'),
-                ('none', 'No risk'),
-              ],
-              onSelected: (v) => setState(() => _risk = v),
             ),
             _SearchBox(
                 controller: _searchCtrl,
@@ -296,9 +248,9 @@ class _ListState extends ConsumerState<_List> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off, size: 40, color: scheme.onSurfaceVariant),
+          Icon(Icons.inbox_outlined, size: 40, color: scheme.onSurfaceVariant),
           const SizedBox(height: 12),
-          Text('No entities match these filters',
+          Text('No alerts match these filters',
               style: TextStyle(color: scheme.onSurfaceVariant)),
           const SizedBox(height: 8),
           TextButton(
@@ -390,7 +342,7 @@ class _SearchBox extends StatelessWidget {
         onChanged: onChanged,
         style: TextStyle(fontSize: 14, color: scheme.onSurface),
         decoration: InputDecoration(
-          hintText: 'Search entities',
+          hintText: 'Search by name',
           hintStyle: TextStyle(
               color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
               fontSize: 14),
@@ -464,21 +416,19 @@ class _TableHeader extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-              flex: 3,
-              child: _HeaderCell('ENTITY NAME', 'name', sortCol, sortAsc, onSort)),
+              flex: 4,
+              child: _HeaderCell('ENTITY', 'name', sortCol, sortAsc, onSort)),
           Expanded(
               flex: 2,
-              child: _HeaderCell('ID NUMBER', 'id', sortCol, sortAsc, onSort)),
+              child: _HeaderCell('TIER', 'risk', sortCol, sortAsc, onSort)),
           Expanded(
-              flex: 3,
+              flex: 2,
+              child:
+                  _HeaderCell('STATUS', 'status', sortCol, sortAsc, onSort)),
+          Expanded(
+              flex: 2,
               child: _HeaderCell(
-                  'JURISDICTION', 'jurisdiction', sortCol, sortAsc, onSort)),
-          Expanded(
-              flex: 2,
-              child: _HeaderCell('STATUS', 'status', sortCol, sortAsc, onSort)),
-          Expanded(
-              flex: 2,
-              child: _HeaderCell('CONFIDENCE LEVEL', 'risk', sortCol, sortAsc, onSort)),
+                  'EXPOSURE', 'exposure', sortCol, sortAsc, onSort)),
           const SizedBox(width: 32),
         ],
       ),
@@ -533,20 +483,24 @@ class _HeaderCell extends StatelessWidget {
   }
 }
 
-class _EntityRow extends StatelessWidget {
-  final EntityDetail detail;
-  const _EntityRow({required this.detail});
+class _AlertRow extends StatelessWidget {
+  final Alert alert;
+  const _AlertRow({required this.alert});
+
+  bool get _isCompany => alert.type.toLowerCase() == 'company';
 
   @override
   Widget build(BuildContext context) {
-    final e = detail.entity;
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final level = detail.topSeverity == 'none' ? 'None' : '${detail.topSeverity[0].toUpperCase()}${detail.topSeverity.substring(1)}';
-    final sevColor = AppTheme.severityColor(detail.topSeverity);
+    final tierColor = _tierColor(alert.tier);
 
     return InkWell(
-      onTap: () => context.push('/entities/${e.entityId}'),
+      // Drill-down (Entity 360 / case / SAR) is rebuilt in a later phase; for
+      // now surface the id rather than navigate into the retired detail screen.
+      onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              '${alert.name} · ${alert.caseId ?? alert.clientId} — case view coming in the next phase'))),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -567,7 +521,7 @@ class _EntityRow extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              flex: 3,
+              flex: 4,
               child: Row(
                 children: [
                   Container(
@@ -582,7 +536,7 @@ class _EntityRow extends StatelessWidget {
                               : Colors.transparent),
                     ),
                     child: Icon(
-                        e.isCompany ? Icons.business : Icons.person_outline,
+                        _isCompany ? Icons.business : Icons.person_outline,
                         size: 20,
                         color: scheme.secondary),
                   ),
@@ -592,13 +546,13 @@ class _EntityRow extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(e.name,
+                        Text(alert.name,
                             style: const TextStyle(
                                 fontWeight: FontWeight.w700, fontSize: 15),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                         const SizedBox(height: 2),
-                        Text(e.isCompany ? 'Company' : 'Person',
+                        Text(alert.type,
                             style: TextStyle(
                                 fontSize: 12.5, color: scheme.outline)),
                       ],
@@ -609,66 +563,61 @@ class _EntityRow extends StatelessWidget {
             ),
             Expanded(
               flex: 2,
-              child: Text(
-                e.dinOrCin ?? 'REG-${e.entityId.substring(0, 6).toUpperCase()}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelMedium
-                    ?.copyWith(color: scheme.onSurfaceVariant, fontSize: 13),
-              ),
-            ),
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(AppTheme.countryName(e.nationality),
-                      style: const TextStyle(fontSize: 14),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                  if (e.nationality != null) ...[
-                    const SizedBox(height: 2),
-                    Text(e.nationality!,
-                        style:
-                            TextStyle(fontSize: 12.5, color: scheme.outline)),
-                  ],
-                ],
-              ),
-            ),
-            Expanded(
-              flex: 2,
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: detail.verdict != null
-                    ? VerdictChip(verdict: detail.verdict!.verdict)
-                    : RiskBadge(severity: detail.topSeverity, compact: true),
+                child: _TierBadge(tier: alert.tier, color: tierColor),
               ),
             ),
             Expanded(
               flex: 2,
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration:
-                        BoxDecoration(shape: BoxShape.circle, color: sevColor),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(level,
-                      style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: scheme.onSurface)),
-                ],
-              ),
+              child: Text(_statusLabel(alert.status),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.onSurface)),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(
+                  alert.exposureInr > 0 ? _inr(alert.exposureInr) : '—',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                      color: scheme.onSurface)),
             ),
             Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _TierBadge extends StatelessWidget {
+  final RiskTier tier;
+  final Color color;
+  const _TierBadge({required this.tier, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+        ),
+        const SizedBox(width: 8),
+        Text(tier.label,
+            style: TextStyle(
+                fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
+      ]),
     );
   }
 }

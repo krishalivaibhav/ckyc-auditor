@@ -32,7 +32,10 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
-DB = Path(os.environ.get("CKYC_DB", ROOT / "investigation_agent" / "ckyc.db"))
+# The sink lives at the repo root — that's where db/store.py (the production
+# writer) and db/seed.py (the demo stand-in) both materialise ckyc.db. Override
+# with CKYC_DB if the pipeline writes elsewhere.
+DB = Path(os.environ.get("CKYC_DB", ROOT / "ckyc.db"))
 
 # Measured by eval/evaluate.py in the pipeline repo (realistic cohort):
 # baseline naive name screening vs the ER ladder. alerts = fp / (1 - precision).
@@ -79,24 +82,30 @@ def _blob_for_client(conn, client_id: str) -> dict:
 
 # ── projections: contracts.models blob -> the six-screen shapes ──────────────
 def _cust(c: dict) -> dict:
-    """Embedded contracts Customer -> the UI's customer block."""
+    """Embedded Customer -> the UI's customer block. Tolerates two blob shapes:
+    the seed/db writes the final UI shape ({name,type,pan,city}); the live
+    pipeline writes the contracts shape ({client_name,client_type,branch})."""
     cu = c.get("customer") or {}
+    ctype = cu.get("type") or (
+        "Company" if cu.get("client_type") == "Corporate" else "Individual")
     return {
-        "client_id": c["client_id"],
-        "name": cu.get("client_name", c["client_id"]),
-        "type": "Company" if cu.get("client_type") == "Corporate" else "Individual",
+        "client_id": cu.get("client_id", c["client_id"]),
+        "name": cu.get("name") or cu.get("client_name") or c["client_id"],
+        "type": ctype,
         "pan": cu.get("pan"),
-        "city": cu.get("branch"),
+        "city": cu.get("city") or cu.get("branch"),
     }
 
 
 def _assessment(c: dict) -> dict:
-    a = (c.get("assessments") or [{}])[-1]
+    # Final shape carries a singular `assessment`; the pipeline carries
+    # `assessments[]` (take the latest) with exposure on the customer.
+    a = c.get("assessment") or (c.get("assessments") or [{}])[-1]
     cu = c.get("customer") or {}
     return {
         "tier": a.get("tier", c.get("tier", "NONE")),
         "score": a.get("score", 0.0),
-        "exposure_inr": cu.get("exposure_inr", 0),
+        "exposure_inr": a.get("exposure_inr", cu.get("exposure_inr", 0)),
         "gates_fired": a.get("gates_fired", []),
         "suppressions": a.get("suppressions", []),
     }
@@ -104,7 +113,10 @@ def _assessment(c: dict) -> dict:
 
 def _candidate(c: dict) -> dict | None:
     """Best resolver candidate for the side-by-side: prefer CONFIRMED (the match
-    the tier rests on), else the first REJECTED (so the mismatch is explainable)."""
+    the tier rests on), else the first REJECTED (so the mismatch is explainable).
+    Final-shape blobs already carry the single projected `candidate` (or null)."""
+    if "candidate" in c:
+        return c["candidate"]
     cands = c.get("candidates") or []
     pick = (next((x for x in cands if x["decision"] == "CONFIRMED"), None)
             or next((x for x in cands if x["decision"] == "REJECTED"), None))
@@ -128,7 +140,7 @@ def _alert(c: dict) -> dict:
     cu = _cust(c)
     return {"client_id": c["client_id"], "name": cu["name"], "type": cu["type"],
             "tier": c.get("tier", "NONE"), "status": c.get("status", "OPEN").lower(),
-            "exposure_inr": (c.get("customer") or {}).get("exposure_inr", 0),
+            "exposure_inr": _assessment(c)["exposure_inr"],
             "case_id": c["case_id"]}
 
 
@@ -136,11 +148,11 @@ def _timeline(c: dict) -> list[dict]:
     out = []
     for i, t in enumerate(c.get("timeline") or []):
         out.append({
-            "id": f"{c['case_id']}-t{i}",
-            "client_id": c["client_id"],
-            "date": t["at"],
-            "event": t["summary"],
-            "evidence_refs": t.get("evidence_ids", []),
+            "id": t.get("id", f"{c['case_id']}-t{i}"),
+            "client_id": t.get("client_id", c["client_id"]),
+            "date": t.get("date") or t.get("at"),
+            "event": t.get("event") or t.get("summary", ""),
+            "evidence_refs": t.get("evidence_refs") or t.get("evidence_ids", []),
             "tier_before": t.get("tier_before", "NONE"),
             "tier_after": t.get("tier_after", "NONE"),
         })
@@ -148,19 +160,25 @@ def _timeline(c: dict) -> list[dict]:
 
 
 def _evidence(c: dict) -> list[dict]:
-    """Union of the assessment's evidence and the SAR's, deduped by id. The
-    contract's CONFIRMED/CORRELATED/MISSING statuses ARE the three columns."""
+    """The three evidence columns (CONFIRMED/CORRELATED/MISSING). Final-shape
+    blobs carry a top-level `evidence[]` already in column form; the pipeline
+    carries evidence inside the assessment and SAR, keyed `evidence_id`/`status`."""
+    fin = c.get("evidence")
+    if fin is not None:
+        pools = [fin]
+    else:
+        pools = [(c.get("assessments") or [{}])[-1].get("evidence") or [],
+                 (c.get("sar") or {}).get("evidence") or []]
     seen, out = set(), []
-    pools = [(c.get("assessments") or [{}])[-1].get("evidence") or [],
-             (c.get("sar") or {}).get("evidence") or []]
     for pool in pools:
         for e in pool:
-            if e["evidence_id"] in seen:
+            ev_id = e.get("ev_id") or e.get("evidence_id")
+            if ev_id in seen:
                 continue
-            seen.add(e["evidence_id"])
+            seen.add(ev_id)
             out.append({
-                "ev_id": e["evidence_id"],
-                "column": e.get("status", "CORRELATED").lower(),
+                "ev_id": ev_id,
+                "column": (e.get("column") or e.get("status", "correlated")).lower(),
                 "claim": e.get("claim", ""),
                 "source_name": e.get("source_name"),
                 "source_url": e.get("source_url") or None,
@@ -174,12 +192,16 @@ def _sar(c: dict) -> dict | None:
     s = c.get("sar")
     if not s:
         return None
-    body = "\n\n".join(
-        f"{k.replace('_', ' ').upper()}\n{v}" for k, v in (s.get("sections") or {}).items())
+    # Final shape has a ready `body`; the pipeline emits titled `sections`.
+    body = s.get("body")
+    if body is None:
+        body = "\n\n".join(
+            f"{k.replace('_', ' ').upper()}\n{v}"
+            for k, v in (s.get("sections") or {}).items())
     return {"case_id": c["case_id"], "body": body,
             "citation_coverage": s.get("citation_coverage", 0.0),
             "unverified_claims": s.get("unverified_claims", []),
-            "status": _SAR_STATUS.get(s.get("status", "DRAFT"), "draft")}
+            "status": _SAR_STATUS.get(str(s.get("status", "DRAFT")).upper(), "draft")}
 
 
 def _case(c: dict) -> dict:
@@ -190,7 +212,7 @@ def _case(c: dict) -> dict:
                 {"action": r.get("action", ""), "note": r.get("note", ""),
                  "reviewer": r.get("reviewer", ""), "at": r.get("at")}
                 for r in c.get("reviewer_actions") or []],
-            "decision": None}
+            "decision": c.get("decision")}
 
 
 def _audit_entry(r: sqlite3.Row) -> dict:
@@ -210,6 +232,8 @@ def alerts(conn, q) -> list[dict]:
     out = []
     for c in _blobs(conn):
         if c.get("tier") in (None, "NONE"):      # nothing raised -> not an alert
+            continue
+        if c.get("status", "").lower() == "suppressed":  # refused -> not an alert
             continue
         a = _alert(c)
         if tier and a["tier"] != tier:
@@ -241,25 +265,38 @@ def audit(conn, q) -> list[dict]:
 
 def suppressions(conn) -> list[dict]:
     """The demo screen: every REJECTED candidate across the book, with its
-    plain-language reason — the alerts the system refused to raise. Deduped:
-    the fixture watchlist can carry an entry twice (and blocking is by index),
-    which would otherwise print the same suppression twice."""
+    plain-language reason — the alerts the system refused to raise. Deduped.
+
+    Primary source is the append-only audit trail: SUPPRESSED events carry the
+    projected {customer,matched,method,reason} in their `after` payload (see the
+    schema comment listing SUPPRESSED as a first-class action). Falls back to
+    REJECTED resolver candidates on blobs for the live-pipeline shape."""
     out, seen = [], set()
+
+    def _add(row):
+        key = (row["customer"], row["matched"], row["method"], row["reason"])
+        if key not in seen:
+            seen.add(key)
+            out.append(row)
+
+    for r in conn.execute(
+            "SELECT after FROM audit_events WHERE action='SUPPRESSED' ORDER BY at DESC"):
+        if not r["after"]:
+            continue
+        a = json.loads(r["after"])
+        _add({"customer": a.get("customer", "?"), "matched": a.get("matched", "?"),
+              "method": a.get("method", "?"), "reason": a.get("reason", "")})
+
     for c in _blobs(conn):
         name = _cust(c)["name"]
         for cand in c.get("candidates") or []:
             if cand.get("decision") != "REJECTED":
                 continue
             f = cand.get("features") or {}
-            row = {"customer": name,
-                   "matched": f.get("list") or cand.get("watchlist_id") or "?",
-                   "method": cand.get("match_method", "?"),
-                   "reason": cand.get("rejection_reason", "")}
-            key = (row["customer"], cand.get("watchlist_id"),
-                   row["method"], row["reason"])
-            if key not in seen:
-                seen.add(key)
-                out.append(row)
+            _add({"customer": name,
+                  "matched": f.get("list") or cand.get("watchlist_id") or "?",
+                  "method": cand.get("match_method", "?"),
+                  "reason": cand.get("rejection_reason", "")})
     return out
 
 
