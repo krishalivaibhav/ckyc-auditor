@@ -16,7 +16,7 @@ The LLM reads full context, not just keywords.
 import os
 import json
 import google.generativeai as genai
-from signals.models import Signal, Severity
+from .models import Signal, Severity
 from datetime import datetime, timezone
 
 

@@ -11,7 +11,7 @@ import json
 import os
 import httpx
 from datetime import datetime, timezone
-from signals.models import Signal
+from .models import Signal
 
 # Where to send confirmed signals. This will be the core/ orchestrator's endpoint.
 CORE_API_URL = os.getenv("CORE_API_URL", "http://localhost:8000/signals/ingest")

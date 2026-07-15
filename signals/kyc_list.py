@@ -8,7 +8,7 @@ In production, this list would be seeded from the KYC customer database
 For now it is managed via API endpoints so the system can be demoed live.
 """
 
-from signals.models import WatchedEntity
+from .models import WatchedEntity
 from typing import Dict
 
 # ── In-memory store ─────────────────────────────────────────────────────────

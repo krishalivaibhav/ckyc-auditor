@@ -15,8 +15,8 @@ All endpoints live under /signals/ prefix.
 
 from fastapi import APIRouter, HTTPException
 from apscheduler.schedulers.background import BackgroundScheduler
-from signals.models import WatchedEntity
-from signals import kyc_list, scanner
+from .models import WatchedEntity
+from . import kyc_list, scanner
 
 router = APIRouter(prefix="/signals", tags=["Signals — Adverse Media"])
 

@@ -10,8 +10,14 @@ Usage:
     uvicorn signals.main:app --reload --port 8002
 """
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from signals/ directory regardless of where uvicorn is launched from
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+
 from fastapi import FastAPI
-from signals.router import router
+from .router import router
 
 app = FastAPI(
     title="Signals — Adverse Media Agent",

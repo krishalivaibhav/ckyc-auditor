@@ -14,7 +14,7 @@ The actual AI reasoning happens inside triage_agent.py.
 """
 
 import os
-from signals import kyc_list, news_fetcher, triage_agent, emitter
+from . import kyc_list, news_fetcher, triage_agent, emitter
 
 SCAN_INTERVAL_MINUTES = int(os.getenv("SCAN_INTERVAL_MINUTES", "60"))
 
