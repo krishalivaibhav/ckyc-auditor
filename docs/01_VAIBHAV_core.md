@@ -225,3 +225,26 @@ watchlist_canonical.csv      build_portfolio.py     evaluate.py
 ## Do not touch
 
 `watchlist/` `signals/` `casefile/` `ui/`. You own `contracts/` — but **freeze it at CP0**.
+
+---
+
+## Pipeline hand-off (direct in-memory architecture — see `docs/06_PIPELINE.md`)
+
+`core/` owns the orchestrator and the two ER/scoring stages. Everything is a typed
+`contracts/models.py` object — no dicts, no DB between stages.
+
+```python
+# core/orchestrator.py — the entrypoint
+def run_pipeline(customer: Customer) -> Case: ...   # blocks->resolves->assesses->builds->persists
+
+# core/resolver.py — Rungs 0-3 (built). Rung 0 blocking (core/blocking.Blocker)
+# narrows the watchlist BEFORE resolution:
+def resolve(customer: Customer, watchlist_candidates: list[WatchlistEntry]) -> list[Candidate]: ...
+
+# core/scoring.py — LATER SESSION. Not implemented yet; the orchestrator stubs the
+# assessment from fixtures until it lands (no scoring introduced by the refactor):
+def assess(client_id, candidates, signals, prior_tier) -> RiskAssessment: ...
+```
+
+The orchestrator persists ONLY `Case` + `SAR` + `AuditEvent` to SQLite (`db/store.py`);
+intermediates flow in memory and ride inside the persisted `Case` where the UI needs them.

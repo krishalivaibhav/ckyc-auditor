@@ -194,3 +194,19 @@ same data in other export formats and will only confuse you.
 ## Do not touch
 
 `core/` `signals/` `casefile/` `ui/` `contracts/`.
+
+---
+
+## Pipeline hand-off (direct in-memory architecture — see `docs/06_PIPELINE.md`)
+
+The orchestrator calls your package by ONE function. Everything is a typed
+`contracts/models.py` object — no dicts, no DB between stages.
+
+```python
+def load_watchlist() -> list[WatchlistEntry]:
+    ...
+```
+
+Until you ship it, `core/orchestrator.py` backs this stage with `fixtures/watchlist.json`.
+When your real function lands at this exact signature, the orchestrator swaps the import
+and nothing else changes.

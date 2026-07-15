@@ -164,3 +164,26 @@ written a line of backend.
 ## Do not touch
 
 `core/` `watchlist/` `signals/` `casefile/` `contracts/`.
+
+---
+
+## Pipeline hand-off (direct in-memory architecture — see `docs/06_PIPELINE.md`)
+
+You consume the PERSISTED `Case` the pipeline produced, via the API. No DB access from
+the UI — read these endpoints (each returns typed `contracts/models.py` shapes as JSON):
+
+```
+GET  /api/alerts?tier=&status=     -> list[Case]     (the queue)
+GET  /api/case/{case_id}           -> Case           (embeds timeline, reviewer_actions,
+                                                       sar, and the assessments to render)
+GET  /api/case/{case_id}/sar       -> SAR | null
+GET  /api/entity/{client_id}       -> { client_id, cases: [Case, ...] }
+GET  /api/entity/{client_id}/timeline -> list[TimelineEvent]
+GET  /api/audit?object_id=         -> list[AuditEvent]     (append-only trail)
+GET  /api/suppressions             -> REJECTED candidates + rejection_reason  (demo screen)
+GET  /api/metrics                  -> baseline vs ours, both base rates
+POST /api/pipeline/{client_id}     -> Case            (run the pipeline live for a demo)
+```
+
+The API rebuilds its SQLite sink and seeds it by running every fixture customer through
+the pipeline on startup, so all of the above return real, pipeline-produced Cases today.

@@ -1,7 +1,7 @@
-.PHONY: up down fixtures test demo-core demo-watchlist demo-signals demo-casefile demo-ui eval
+.PHONY: up fixtures test demo-core demo-watchlist demo-signals demo-casefile demo-ui eval
 
-up:        ; docker-compose up -d && sleep 3 && echo "api -> http://localhost:8000/docs"
-down:      ; docker-compose down
+# One process, no Docker. SQLite sink is rebuilt from fixtures on startup.
+up:        ; uvicorn api.main:app --reload --port 8000 && echo "api -> http://localhost:8000/docs"
 fixtures:  ; python scripts/make_fixtures.py
 test:      ; pytest tests/ -q
 

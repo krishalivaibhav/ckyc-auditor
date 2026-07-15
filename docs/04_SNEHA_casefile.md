@@ -192,3 +192,40 @@ That's a feature — it means you are unblocked from minute zero.
 ## Do not touch
 
 `core/` `watchlist/` `signals/` `ui/` `contracts/`.
+
+---
+
+## Pipeline hand-off (direct in-memory architecture — see `docs/06_PIPELINE.md`)
+
+The orchestrator calls your package by TWO functions, only when `assessment.tier != "NONE"`.
+Everything is a typed `contracts/models.py` object — no dicts, no DB between stages.
+
+```python
+def investigate(assessment: RiskAssessment) -> list[Evidence]:
+    ...
+def draft_sar(assessment: RiskAssessment, evidence: list[Evidence]) -> SAR:
+    ...
+```
+
+Until you ship them, `core/orchestrator.py` backs both with `fixtures/` (SAR reuses the
+golden `fixtures/sar.json` when the subject matches, else synthesizes a minimal draft).
+
+### REQUIRED — Salvage 2: atomic review action (owned by you, `casefile/`)
+
+Port this guarantee from the retired build's `review_report()`: a reviewer action MUST
+flip the `Case` status **and** append the `AuditEvent` in **one transaction — both or
+neither**. You can never approve/dismiss a case without leaving an immutable trail.
+
+```python
+def review(case_id: str, action: ReviewerAction) -> Case:
+    with store.connect() as conn:      # single transaction
+        # 1) update case status (INSERT OR REPLACE the Case row)
+        # 2) append AuditEvent(action=..., object_type="Case", object_id=case_id)
+        # commit both or roll back both
+```
+
+The `audit_events` table is append-only, enforced by a RAISING trigger (Salvage 1, in
+`db/schema.sql`) — an attempt to UPDATE/DELETE an audit row FAILS LOUDLY. `db/store.py`
+already writes audit rows inside a single `with conn:` transaction; extend that pattern
+for the reviewer flip. **This is a requirement for `casefile/`, noted here because the
+refactor session did not implement it in another package.**

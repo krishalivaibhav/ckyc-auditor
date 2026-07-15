@@ -5,6 +5,10 @@ venv/
 .env
 .pytest_cache/
 .DS_Store
+
+# SQLite sink — rebuilt from fixtures on every run
+ckyc.db
+*.db
 *.egg-info/
 node_modules/
 ui/build/

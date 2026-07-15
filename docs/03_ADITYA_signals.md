@@ -167,3 +167,20 @@ Everything else you pull live. **Cache ~50 real articles to disk before demo day
 ## Do not touch
 
 `core/` `watchlist/` `casefile/` `ui/` `contracts/`.
+
+---
+
+## Pipeline hand-off (direct in-memory architecture — see `docs/06_PIPELINE.md`)
+
+The orchestrator calls your package by ONE function. Everything is a typed
+`contracts/models.py` object — no dicts, no DB between stages.
+
+```python
+def fetch_and_triage(customer: Customer) -> list[Signal]:
+    ...
+```
+
+This is the **network-touching stage** (GDELT/RSS). The orchestrator ALWAYS calls it via
+`safe(fetch_and_triage, customer, default=[])` — if it throws, the pipeline proceeds with
+`signals = []` and logs it. One dead feed must not kill the run. Until you ship it,
+`core/orchestrator.py` backs this stage with `fixtures/signals.json`.
