@@ -1,62 +1,102 @@
 """
 signals/scanner.py
 ------------------
-The autonomous scanning loop.
+Autonomous scanning loop. Orchestrates the full pipeline for each entity
+on the KYC watchlist:
 
-Every N minutes (configurable via SCAN_INTERVAL_MINUTES env var), it:
-  1. Reads every entity from the KYC watchlist.
-  2. Fetches recent news for each entity via NewsAPI.
-  3. Passes each article through the LLM Triage Agent.
-  4. Emits a Signal for every article the LLM confirms as genuinely adverse.
+  1. Fetch news articles (NewsAPI)
+  2. Deduplicate (skip already-seen articles via DB hash check)
+  3. Entity Resolution (Stage 1 AI)
+  4. Adverse Triage   (Stage 2 AI)
+  5. Save signal to DB + emit downstream
 
-This is plain code, not an "agent" — APScheduler handles the timing.
-The actual AI reasoning happens inside triage_agent.py.
+This is deterministic orchestration code — NOT an agent.
+The AI reasoning happens inside triage_agent.py.
 """
 
 import os
-from . import kyc_list, news_fetcher, triage_agent, emitter
+import logging
+from .models import AuditEvent
+from . import kyc_list, news_fetcher, triage_agent
+from .database import save_article, save_signal, append_audit, count_articles_scanned, count_signals_emitted
 
-SCAN_INTERVAL_MINUTES = int(os.getenv("SCAN_INTERVAL_MINUTES", "60"))
+logger = logging.getLogger("signals.scanner")
 
 
 def run_scan():
     """
-    One full scan cycle: fetch news for all watched entities and triage each article.
-    Called by the APScheduler on a configurable interval.
+    One full scan cycle across all watched entities.
+    Called on a timer by the scheduler in router.py.
     """
     entities = kyc_list.get_all()
 
     if not entities:
-        print("[Scanner] Watchlist is empty. Nothing to scan.")
+        logger.warning("Watchlist is empty. Nothing to scan.")
         return
 
-    print(f"\n[Scanner] ── Starting scan cycle for {len(entities)} entity/entities ──")
-
-    total_signals = 0
+    logger.info(f"── Scan cycle started for {len(entities)} entity/entities ──")
+    cycle_signals = 0
 
     for entity in entities:
-        print(f"[Scanner] Scanning: {entity.name}")
+        logger.info(f"Scanning: {entity.name}")
 
-        # 1. Fetch news articles from NewsAPI
-        articles = news_fetcher.NewsFetcher.fetch(
-            entity_name=entity.name,
-            aliases=entity.aliases,
+        append_audit(AuditEvent(
+            entity_name = entity.name,
+            action      = "SCAN_STARTED",
+            detail      = f"Fetching news for '{entity.name}' and {len(entity.aliases)} alias(es).",
+        ))
+
+        # ── Step 1: Fetch news ────────────────────────────────────────────────
+        articles = news_fetcher.fetch(
+            entity_name = entity.name,
+            aliases     = entity.aliases,
         )
 
         if not articles:
-            print(f"[Scanner] No recent news found for '{entity.name}'. Skipping.")
+            logger.info(f"No recent news found for '{entity.name}'.")
+            append_audit(AuditEvent(
+                entity_name = entity.name,
+                action      = "NO_NEWS_FOUND",
+                detail      = "NewsAPI returned 0 results for this entity.",
+            ))
             continue
 
-        # 2. Triage each article through the LLM agent
+        new_articles = 0
         for article in articles:
-            signal = triage_agent.triage(
-                entity_name=entity.name,
-                article=article,
-            )
 
-            # 3. If the LLM confirms it is adverse → emit it downstream
+            # ── Step 2: Deduplicate ───────────────────────────────────────────
+            is_new = save_article(article)
+            if not is_new:
+                logger.debug(f"Duplicate article skipped: '{article.headline[:60]}'")
+                continue
+
+            new_articles += 1
+            append_audit(AuditEvent(
+                entity_name = entity.name,
+                article_id  = article.article_id,
+                action      = "ARTICLE_FETCHED",
+                detail      = f"Source: {article.source_name} | '{article.headline[:80]}'",
+            ))
+
+            # ── Steps 3 & 4: Entity Resolution + Triage ──────────────────────
+            signal = triage_agent.analyse(article, entity)
+
+            # ── Step 5: Save + emit ───────────────────────────────────────────
             if signal:
-                emitter.emit(signal)
-                total_signals += 1
+                save_signal(signal)
+                cycle_signals += 1
+                logger.info(
+                    f"🚨 ADVERSE SIGNAL | {signal.entity_name} | "
+                    f"{signal.severity.upper()} | {signal.confidence:.0%} | "
+                    f"{signal.headline[:60]}"
+                )
 
-    print(f"[Scanner] ── Scan cycle complete. {total_signals} adverse signal(s) emitted. ──\n")
+        logger.info(f"'{entity.name}': {new_articles} new article(s) processed.")
+
+    total_scanned = count_articles_scanned()
+    total_signals = count_signals_emitted()
+    logger.info(
+        f"── Scan cycle complete. "
+        f"Signals this cycle: {cycle_signals} | "
+        f"DB totals: {total_scanned} articles scanned, {total_signals} signals emitted. ──"
+    )

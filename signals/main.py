@@ -1,37 +1,35 @@
 """
-signals/main.py
----------------
-Standalone entry point for the signals package.
-
-Run this directly to test your module independently,
-without needing any other teammate's code to be ready.
+signals/main.py — Standalone entry point for the signals package.
 
 Usage:
-    uvicorn signals.main:app --reload --port 8002
+    python run.py           (from TechMKYC/ root — recommended)
+    uvicorn signals.main:app --reload --port 8002  (from TechMKYC/ root)
 """
 
 from pathlib import Path
 from dotenv import load_dotenv
-
-# Load .env from signals/ directory regardless of where uvicorn is launched from
 load_dotenv(dotenv_path=Path(__file__).parent / ".env")
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from .router import router
 
 app = FastAPI(
-    title="Signals — Adverse Media Agent",
-    description=(
-        "Autonomous adverse news monitoring agent for KYC compliance. "
-        "Watches a list of corporate entities, fetches news via NewsAPI, "
-        "and uses Claude (LLM) to determine if the news is genuinely adverse."
+    title       = "Signals — Adverse Media & Sanctions Monitor",
+    description = (
+        "Autonomous adverse media monitoring agent for Continuous KYC. "
+        "Fetches news via NewsAPI, applies two-stage AI analysis "
+        "(Entity Resolution + Adverse Triage via Groq/Llama), "
+        "deduplicates, and emits structured risk signals with a full audit trail."
     ),
-    version="1.0.0",
+    version = "2.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins  = ["*"],
+    allow_methods  = ["*"],
+    allow_headers  = ["*"],
 )
 
 app.include_router(router)
-
-
-@app.get("/health", tags=["Health"])
-def health():
-    return {"status": "ok", "service": "signals"}
