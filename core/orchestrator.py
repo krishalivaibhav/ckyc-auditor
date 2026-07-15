@@ -33,6 +33,7 @@ from uuid import uuid4
 from contracts.models import (AuditEvent, Case, Customer, Evidence, RiskAssessment,
                               SAR, Signal, TimelineEvent, WatchlistEntry)
 from core.blocking import Blocker
+from core.investigate import investigate   # the real investigation agent (Sneha's input)
 from core.resolver import resolve
 from db.store import init_db, persist
 
@@ -69,10 +70,6 @@ def fetch_and_triage(customer: Customer) -> list[Signal]:        # ---- Aditya (
     first = (customer.client_name.split() or [""])[0].lower()
     sigs = [Signal(**s) for s in _fx("signals")]
     return [s for s in sigs if any(first and first in m.lower() for m in s.mentioned_names)]
-
-
-def investigate(assessment: RiskAssessment) -> list[Evidence]:   # ---- Sneha
-    return list(assessment.evidence)
 
 
 def draft_sar(assessment: RiskAssessment, evidence: list[Evidence],
