@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
-import 'core/supabase.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Connects to Supabase when SUPABASE_URL/SUPABASE_ANON_KEY are provided via
-  // --dart-define; otherwise the app runs on bundled demo data.
-  await initSupabase();
+  // Data comes from the local read API over ckyc.db (see lib/core/api.dart and
+  // api/server.py). Nothing to initialise at boot — the repository connects
+  // lazily on the first request.
   runApp(const ProviderScope(child: TechMkycApp()));
 }

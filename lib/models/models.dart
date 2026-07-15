@@ -267,11 +267,11 @@ class EntityDetail {
 // ═════════════════════════════════════════════════════════════════════════════
 // New architecture — 05_SAMAKSH_ui.md contract
 //
-// These models describe the demo dashboard's six-screen contract (tiers,
-// exposure, gates/suppressions, three-column evidence, SAR with [EV-nnn]
-// citations, metrics, replay). They are ADDITIVE: the schema.md §1–6 models
-// above still back the live Supabase tables. Until a migration lands, only
-// [DemoRepository] serves these shapes — [SupabaseRepository] stubs them.
+// These models describe the dashboard's six-screen contract (tiers, exposure,
+// gates/suppressions, three-column evidence, SAR with [EV-nnn] citations,
+// metrics, replay). They are served from ckyc.db via ApiRepository. The
+// schema.md §1–6 models above are retired (no DB backing) and get removed when
+// their screens are rebuilt in the UI phase.
 // ═════════════════════════════════════════════════════════════════════════════
 
 /// Risk tier. CRITICAL is UAPA — always human, never auto-decided. Ranked for

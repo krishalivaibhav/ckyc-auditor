@@ -1,15 +1,16 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:http/http.dart' as http;
 
-import '../core/supabase.dart';
+import '../core/api.dart';
 import '../models/models.dart';
 import 'demo_data.dart';
 
 /// Data access for the dashboard. Two implementations behind one interface:
-///  - [SupabaseRepository]  → live Postgres (Persons 1–4 write here).
-///  - [DemoRepository]      → bundled seed data, offline-safe fallback.
+///  - [ApiRepository]   → the local read API over ckyc.db (api/server.py).
+///  - [DemoRepository]  → bundled seed data, offline-safe fallback.
 abstract class KycRepository {
   /// Watchlist rows: entity + its verdict + risk events (for the severity badge).
   Future<List<EntityDetail>> fetchWatchlist();
@@ -36,9 +37,8 @@ abstract class KycRepository {
   Stream<void> changes();
 
   // ── 05_SAMAKSH_ui.md six-screen contract ──────────────────────────────────
-  // Additive to the schema.md methods above. The live Supabase schema does not
-  // carry tiers/suppressions/SAR yet, so SupabaseRepository stubs these and
-  // DemoRepository is the source of truth until a migration lands.
+  // The tier-based model. Served by ApiRepository from ckyc.db (api/server.py);
+  // the schema.md §1–6 methods above are retired and have no DB backing.
 
   /// Screen 1 — alert queue, optionally filtered by tier and/or status.
   Future<List<Alert>> fetchAlerts({RiskTier? tier, String? status});
@@ -87,163 +87,117 @@ abstract class KycRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Supabase-backed implementation
+// Live implementation — the local read API over ckyc.db (api/server.py).
+//
+// Read-only for now (per "just read operation for now"): the six-screen GET
+// endpoints are wired; reviewer WRITES (blacklist/dismiss/approve/deny) will
+// POST to the same API in the UI phase so the append-only audit stays in Python.
+// The retired schema.md §1–6 entity endpoints (entities/verdicts/risk_events)
+// have no backing in this DB and throw — those screens get replaced in the UI
+// rewire, not migrated.
 // ─────────────────────────────────────────────────────────────────────────────
-class SupabaseRepository implements KycRepository {
-  final SupabaseClient _db;
+class ApiRepository implements KycRepository {
+  ApiRepository({http.Client? client, String? baseUrl})
+      : _client = client ?? http.Client(),
+        _base = baseUrl ?? ApiConfig.baseUrl;
+
+  final http.Client _client;
+  final String _base;
+  // No server push yet; the stream stays open but never emits, so change-aware
+  // providers simply load once. Replay/Realtime plug in here later.
   final _changes = StreamController<void>.broadcast();
-  RealtimeChannel? _channel;
 
-  SupabaseRepository(this._db) {
-    _subscribe();
-  }
+  Uri _uri(String path, [Map<String, String>? query]) =>
+      Uri.parse('$_base$path').replace(
+          queryParameters: (query == null || query.isEmpty) ? null : query);
 
-  void _subscribe() {
-    _channel = _db.channel('kyc-changes')
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'risk_events',
-        callback: (_) => _changes.add(null),
-      )
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'entities',
-        callback: (_) => _changes.add(null),
-      )
-      ..onPostgresChanges(
-        event: PostgresChangeEvent.all,
-        schema: 'public',
-        table: 'resolution_verdicts',
-        callback: (_) => _changes.add(null),
-      )
-      ..subscribe();
+  Future<dynamic> _get(String path, [Map<String, String>? query]) async {
+    final res = await _client.get(_uri(path, query));
+    if (res.statusCode != 200) {
+      throw ApiException(res.statusCode, path, res.body);
+    }
+    return jsonDecode(res.body);
   }
 
   @override
   Stream<void> changes() => _changes.stream;
 
-  /// Tear down the realtime subscription (called from the provider's onDispose).
   Future<void> dispose() async {
-    final channel = _channel;
-    if (channel != null) await _db.removeChannel(channel);
+    _client.close();
     await _changes.close();
   }
 
+  // ── 05_SAMAKSH_ui.md six-screen reads ─────────────────────────────────────
   @override
-  Future<List<EntityDetail>> fetchWatchlist() async {
-    final entities = (await _db.from('entities').select().order('created_at'))
-        .map((e) => Entity.fromJson(e))
-        .toList();
-    final verdicts = (await _db.from('resolution_verdicts').select())
-        .map((v) => ResolutionVerdict.fromJson(v))
-        .toList();
-    final events = (await _db.from('risk_events').select())
-        .map((r) => RiskEvent.fromJson(r))
-        .toList();
-
-    return entities.map((e) {
-      final v = verdicts.where((x) => x.queryEntityId == e.entityId);
-      final ev = events.where((x) => x.entityId == e.entityId).toList();
-      return EntityDetail(
-        entity: e,
-        verdict: v.isEmpty ? null : v.first,
-        riskEvents: ev,
-      );
-    }).toList();
+  Future<List<Alert>> fetchAlerts({RiskTier? tier, String? status}) async {
+    final q = <String, String>{};
+    if (tier != null) q['tier'] = tier.wire;
+    if (status != null) q['status'] = status;
+    final list = await _get('/api/alerts', q) as List;
+    return list.map((e) => Alert.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<EntityDetail> fetchDetail(String entityId) async {
-    final e = Entity.fromJson(
-        await _db.from('entities').select().eq('entity_id', entityId).single());
-    final verdicts = await _db
-        .from('resolution_verdicts')
-        .select()
-        .eq('query_entity_id', entityId)
-        .order('resolved_at', ascending: false);
-    final events = await _db
-        .from('risk_events')
-        .select()
-        .eq('entity_id', entityId)
-        .order('detected_at', ascending: false);
-    // report_timeline is scoped to the report (schema.md §7), so it comes back
-    // nested under draft_reports rather than queried by entity_id directly.
-    final reports = await _db
-        .from('draft_reports')
-        .select('*, report_citations(*), report_timeline(*)')
-        .eq('entity_id', entityId)
-        .order('created_at', ascending: false)
-        .limit(1);
-
-    return EntityDetail(
-      entity: e,
-      verdict: verdicts.isEmpty
+  Future<Entity360> fetchEntity360(String clientId) async {
+    final j = await _get('/api/entity/$clientId') as Map<String, dynamic>;
+    final cand = j['candidate'];
+    return Entity360(
+      customer: Customer.fromJson(j['customer'] as Map<String, dynamic>),
+      assessment:
+          RiskAssessment.fromJson(j['assessment'] as Map<String, dynamic>),
+      candidate: cand == null
           ? null
-          : ResolutionVerdict.fromJson(verdicts.first),
-      riskEvents: events.map((r) => RiskEvent.fromJson(r)).toList(),
-      report: reports.isEmpty ? null : DraftReport.fromJson(reports.first),
+          : Candidate.fromJson(cand as Map<String, dynamic>),
     );
   }
 
   @override
+  Future<List<TimelineEvent>> fetchEntityTimeline(String clientId) async {
+    final list = await _get('/api/entity/$clientId/timeline') as List;
+    return list
+        .map((e) => TimelineEvent.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<Case> fetchCase(String caseId) async {
+    final j = await _get('/api/case/$caseId') as Map<String, dynamic>;
+    return Case.fromJson(j);
+  }
+
+  @override
+  Future<Sar?> fetchSar(String caseId) async {
+    final j = await _get('/api/case/$caseId/sar');
+    return j == null ? null : Sar.fromJson(j as Map<String, dynamic>);
+  }
+
+  @override
   Future<List<AuditEntry>> fetchAudit({String? entityId}) async {
-    var q = _db.from('audit_log').select();
-    if (entityId != null) q = q.eq('entity_id', entityId);
-    final rows = await q.order('timestamp', ascending: false).limit(200);
-    return rows.map((r) => AuditEntry.fromJson(r)).toList();
+    final list = await _get(
+        '/api/audit', entityId == null ? null : {'object_id': entityId}) as List;
+    return list
+        .map((e) => AuditEntry.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   @override
-  Future<Entity> ingestEntity(Entity draft) async {
-    final row = await _db
-        .from('entities')
-        .insert(draft.toInsertJson())
-        .select()
-        .single();
-    return Entity.fromJson(row);
+  Future<List<Suppression>> fetchSuppressions() async {
+    final list = await _get('/api/suppressions') as List;
+    return list
+        .map((e) => Suppression.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 
   @override
-  Future<void> reviewReport({
-    required String reportId,
-    required String action,
-    required String reviewerName,
-    String? editedSummary,
-  }) async {
-    await _db.rpc('review_report', params: {
-      'p_report_id': reportId,
-      'p_action': action,
-      'p_reviewer_name': reviewerName,
-      'p_edited_summary': editedSummary,
-    });
-    _changes.add(null);
+  Future<Metrics> fetchMetrics() async {
+    final j = await _get('/api/metrics') as Map<String, dynamic>;
+    return Metrics.fromJson(j);
   }
 
-  // ── 05_SAMAKSH_ui.md contract: stubbed until the tier/suppression/SAR schema
-  // migration lands. DemoRepository is the source of truth for these screens.
-  static Never _notMigrated(String what) => throw UnimplementedError(
-      '$what is served by DemoRepository until the tier/suppression schema '
-      'migration lands — the live Supabase tables still use schema.md §1–6.');
-
-  @override
-  Future<List<Alert>> fetchAlerts({RiskTier? tier, String? status}) =>
-      _notMigrated('fetchAlerts');
-
-  @override
-  Future<Entity360> fetchEntity360(String clientId) =>
-      _notMigrated('fetchEntity360');
-
-  @override
-  Future<List<TimelineEvent>> fetchEntityTimeline(String clientId) =>
-      _notMigrated('fetchEntityTimeline');
-
-  @override
-  Future<Case> fetchCase(String caseId) => _notMigrated('fetchCase');
-
-  @override
-  Future<Sar?> fetchSar(String caseId) => _notMigrated('fetchSar');
+  // ── writes — deferred to the UI phase (read-only for now) ─────────────────
+  static Never _readOnly(String what) => throw UnimplementedError(
+      '$what is a write — not wired yet. The read-only phase serves GETs from '
+      'ckyc.db; reviewer writes POST to the API in the UI rewire.');
 
   @override
   Future<void> reviewCase({
@@ -252,7 +206,7 @@ class SupabaseRepository implements KycRepository {
     required String note,
     required String reviewerName,
   }) =>
-      _notMigrated('reviewCase');
+      _readOnly('reviewCase');
 
   @override
   Future<void> reviewSar({
@@ -260,22 +214,50 @@ class SupabaseRepository implements KycRepository {
     required String action,
     required String reviewerName,
   }) =>
-      _notMigrated('reviewSar');
+      _readOnly('reviewSar');
 
   @override
-  Future<List<Suppression>> fetchSuppressions() =>
-      _notMigrated('fetchSuppressions');
+  Future<Entity> ingestEntity(Entity draft) => _readOnly('ingestEntity');
 
   @override
-  Future<Metrics> fetchMetrics() => _notMigrated('fetchMetrics');
+  Future<void> reviewReport({
+    required String reportId,
+    required String action,
+    required String reviewerName,
+    String? editedSummary,
+  }) =>
+      _readOnly('reviewReport');
 
   @override
   Future<void> replay({
     required DateTime from,
     required DateTime to,
     int speed = 1000,
-  }) =>
-      _notMigrated('replay');
+  }) async {
+    // No server-side replay endpoint yet; no-op so callers don't crash.
+  }
+
+  // ── retired schema.md §1–6 (entities/verdicts/risk_events) — no DB backing ─
+  static Never _retired(String what) => throw UnimplementedError(
+      '$what belongs to the retired schema.md §1–6 model (severity/entities). '
+      'The tier-based contract replaced it; those screens are rebuilt in the '
+      'UI phase against fetchAlerts/fetchEntity360/fetchCase.');
+
+  @override
+  Future<List<EntityDetail>> fetchWatchlist() => _retired('fetchWatchlist');
+
+  @override
+  Future<EntityDetail> fetchDetail(String entityId) => _retired('fetchDetail');
+}
+
+/// A non-200 from the read API, surfaced with enough context to debug.
+class ApiException implements Exception {
+  final int statusCode;
+  final String path;
+  final String body;
+  ApiException(this.statusCode, this.path, this.body);
+  @override
+  String toString() => 'ApiException($statusCode on $path): $body';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -551,22 +533,20 @@ class DemoRepository implements KycRepository {
 // Providers
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Single repository for the app, chosen by whether Supabase is configured.
+/// Single repository for the app. Defaults to the live read API over ckyc.db;
+/// `--dart-define=USE_DEMO_DATA=true` forces the bundled offline fixtures.
 final repositoryProvider = Provider<KycRepository>((ref) {
-  if (SupabaseConfig.isConfigured) {
-    final repo = SupabaseRepository(supabase);
-    ref.onDispose(repo.dispose);
-    return repo;
-  }
-  return DemoRepository();
+  if (ApiConfig.useDemoData) return DemoRepository();
+  final repo = ApiRepository();
+  ref.onDispose(repo.dispose);
+  return repo;
 });
 
 /// True when running on bundled demo data (surfaced in the UI as a banner).
-final isDemoModeProvider =
-    Provider<bool>((ref) => !SupabaseConfig.isConfigured);
+final isDemoModeProvider = Provider<bool>((ref) => ApiConfig.useDemoData);
 
-/// Fires whenever upstream data changes (Realtime in Supabase mode). Screens
-/// watch this to auto-refresh — this is the live seam Persons 1–4 plug into.
+/// Fires whenever upstream data changes. Screens watch this to auto-refresh —
+/// the live seam for server push/replay (currently inert; loads once).
 final changesProvider = StreamProvider<void>(
     (ref) => ref.watch(repositoryProvider).changes());
 

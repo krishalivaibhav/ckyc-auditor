@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Lightweight reviewer session. The reviewer name becomes the audit-log
 /// `actor` (`human:name`) on every approve/edit/reject. For the hackathon this
-/// is a name capture; swap for Supabase Auth users when you need real accounts.
+/// is a name capture; swap for real accounts when you need them.
 class Session {
   final String? reviewerName;
   const Session({this.reviewerName});
