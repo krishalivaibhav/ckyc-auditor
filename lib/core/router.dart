@@ -40,12 +40,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/entities/:id',
         builder: (_, state) =>
-            EntityDetailScreen(entityId: state.pathParameters['id']!),
+            EntityDetailScreen(clientId: state.pathParameters['id']!),
       ),
       GoRoute(
         path: '/entities/:id/report',
         builder: (_, state) =>
-            ReportScreen(entityId: state.pathParameters['id']!),
+            ReportScreen(clientId: state.pathParameters['id']!),
       ),
     ],
   );

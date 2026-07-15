@@ -80,10 +80,31 @@ splits them back into distinct clients, and that split IS the demo:
   metrics in the exact shapes `lib/models/models.dart` parses. `flutter analyze` clean.
 - Pipeline test suite: 22/22 pass.
 
+## Dashboard (Flutter) — what renders the pipeline output
+
+The six-screen dashboard reads the pipeline sink through the adapter (`:8787`):
+
+- **Alert queue** (`entity_list_screen`): the cases with a raised tier, sorted by
+  tier × exposure. Each row drills into the case.
+- **Case detail** (`entity_detail_screen`, `/entities/{client_id}`): Entity 360
+  (our customer ←→ matched watchlist entry, with the ambiguity verdict —
+  confirmed or suppressed-with-reason), the risk timeline (dated tier moves,
+  escalation AND de-escalation, `[EV-nnn]` chips), and the three evidence columns
+  (confirmed / correlated / missing) the investigation agent produced.
+- **SAR draft** (`report_screen`, `/entities/{client_id}/report`): the drafted
+  Suspicious Activity Report, section-structured, with inline `[EV-nnn]` citation
+  chips (tap → the backing evidence + source), citation-coverage bar, and the
+  claims excluded because they could not be verified.
+
+All three read live from `ckyc.db`; the retired schema.md severity/verdict model
+is gone. Reads use `/api/entity/{cid}` + `/timeline` + `/case`.
+
 ## Notes / next
 
 - **Reviewer write-back** (approve/deny → flip Case status + append audit row in one
-  transaction) is the remaining loop — the UI phase item.
+  transaction) is the remaining loop — the SAR/case views render read-only for now
+  (the `ApiRepository` write methods still throw; wiring them needs a POST endpoint
+  on the read-API + a `store.py` transactional writer).
 - `core/scoring.py` is still the golden-fixture stub; when Vaibhav ships `assess()`,
   tiers respond to live signals instead of fixtures. The seam is already wired.
 - With a `GROQ_API_KEY` in `news_agent/signals/.env` the news ER/triage goes LLM;

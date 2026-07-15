@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/repository.dart';
 import '../../models/models.dart';
@@ -496,11 +497,9 @@ class _AlertRow extends StatelessWidget {
     final tierColor = _tierColor(alert.tier);
 
     return InkWell(
-      // Drill-down (Entity 360 / case / SAR) is rebuilt in a later phase; for
-      // now surface the id rather than navigate into the retired detail screen.
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-              '${alert.name} · ${alert.caseId ?? alert.clientId} — case view coming in the next phase'))),
+      // Drill into the full case: Entity 360, risk timeline, three-column
+      // evidence and the SAR the investigation agent drafted.
+      onTap: () => context.push('/entities/${alert.clientId}'),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),

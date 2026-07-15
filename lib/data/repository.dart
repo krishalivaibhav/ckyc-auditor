@@ -52,6 +52,10 @@ abstract class KycRepository {
   /// Screen 4 + 6 — full case: three-column evidence, SAR, reviewer actions.
   Future<Case> fetchCase(String caseId);
 
+  /// Screen 4 + 6 — the case for a client, when the caller has the client id but
+  /// not the case id (the drill-down from Entity 360). Null if none filed yet.
+  Future<Case?> fetchCaseByClient(String clientId);
+
   /// Screen 6 — just the SAR for a case (may be null if none drafted yet).
   Future<Sar?> fetchSar(String caseId);
 
@@ -163,6 +167,17 @@ class ApiRepository implements KycRepository {
   Future<Case> fetchCase(String caseId) async {
     final j = await _get('/api/case/$caseId') as Map<String, dynamic>;
     return Case.fromJson(j);
+  }
+
+  @override
+  Future<Case?> fetchCaseByClient(String clientId) async {
+    try {
+      final j = await _get('/api/entity/$clientId/case') as Map<String, dynamic>;
+      return Case.fromJson(j);
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) return null; // no case filed for this client yet
+      rethrow;
+    }
   }
 
   @override
@@ -417,6 +432,14 @@ class DemoRepository implements KycRepository {
   }
 
   @override
+  Future<Case?> fetchCaseByClient(String clientId) async {
+    for (final c in _cases.values) {
+      if (c.clientId == clientId) return c;
+    }
+    return null;
+  }
+
+  @override
   Future<Sar?> fetchSar(String caseId) async => _cases[caseId]?.sar;
 
   @override
@@ -597,6 +620,14 @@ final caseProvider =
     FutureProvider.family<Case, String>((ref, caseId) async {
   ref.watch(changesProvider);
   return ref.watch(repositoryProvider).fetchCase(caseId);
+});
+
+/// Screen 4 + 6 — the case for a client id (drill-down from the alert queue),
+/// null when nothing has been filed on that client yet.
+final caseByClientProvider =
+    FutureProvider.family<Case?, String>((ref, clientId) async {
+  ref.watch(changesProvider);
+  return ref.watch(repositoryProvider).fetchCaseByClient(clientId);
 });
 
 /// Screen 5 — suppression log.

@@ -14,6 +14,7 @@ Standard library only. Endpoints (all GET):
     /api/alerts?tier=&status=      alert queue        (cases with tier != NONE)
     /api/entity/{client_id}        Entity 360         (customer + assessment + candidate)
     /api/entity/{client_id}/timeline
+    /api/entity/{client_id}/case   the case for a client (no case_id needed)
     /api/case/{case_id}            evidence three-column + SAR + reviewer actions
     /api/case/{case_id}/sar
     /api/audit?object_id=
@@ -32,10 +33,15 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
-# The sink lives at the repo root — that's where db/store.py (the production
-# writer) and db/seed.py (the demo stand-in) both materialise ckyc.db. Override
-# with CKYC_DB if the pipeline writes elsewhere.
-DB = Path(os.environ.get("CKYC_DB", ROOT / "ckyc.db"))
+# The live sink is the pipeline's own DB — investigation_agent runs with that
+# folder as its CWD, so db/store.py materialises `ckyc.db` in there. The retired
+# db/seed.py wrote a stand-in at the repo root; prefer the pipeline sink when it
+# exists so the dashboard shows real investigation output, not the stale seed.
+# CKYC_DB overrides everything.
+_PIPELINE_SINK = ROOT / "investigation_agent" / "ckyc.db"
+DB = (Path(os.environ["CKYC_DB"]) if os.environ.get("CKYC_DB")
+      else _PIPELINE_SINK if _PIPELINE_SINK.exists()
+      else ROOT / "ckyc.db")
 
 # Measured by eval/evaluate.py in the pipeline repo (realistic cohort):
 # baseline naive name screening vs the ER ladder. alerts = fp / (1 - precision).
@@ -351,6 +357,10 @@ class Handler(BaseHTTPRequestHandler):
                 return entity360(conn, cid)
             case ["entity", cid, "timeline"]:
                 return _timeline(_blob_for_client(conn, cid))
+            case ["entity", cid, "case"]:
+                # The case (evidence + SAR) for a client, without needing to know
+                # its case_id — the detail screen has only the client_id.
+                return _case(_blob_for_client(conn, cid))
             case ["case", cid]:
                 return _case(_blob(conn, cid))
             case ["case", cid, "sar"]:

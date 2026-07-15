@@ -65,7 +65,9 @@ curl -s -X POST -H "X-API-Key: ${NEWS_KEY}" \
 sleep 12   # scanner runs in a thread; give the emit cycle time to finish
 
 echo "[5/5] read-API adapter on :${READ_PORT} (what the Flutter dashboard reads)"
-python3 api/server.py --port "$READ_PORT" & PIDS+=($!)
+# Read the PIPELINE's sink, not the retired root seed. server.py prefers this
+# path on its own when it exists, but pin it so a stale root ckyc.db never wins.
+CKYC_DB="$(pwd)/investigation_agent/ckyc.db" python3 api/server.py --port "$READ_PORT" & PIDS+=($!)
 wait_for "http://127.0.0.1:${READ_PORT}/api/health" "read-api"
 
 echo
