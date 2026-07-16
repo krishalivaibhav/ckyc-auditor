@@ -1,8 +1,0 @@
-Source: Financial Compliance Bulletin
-Date: 2026-07-12
-
-Entity: Alpha Global Holdings
-
-Recent monitoring detected unusual cross-border transactions involving Alpha Global Holdings. Compliance analysts recommended opening an investigation to determine whether the activity requires regulatory reporting.
-
-Source URL: https://example.com/article3

@@ -1,8 +1,0 @@
-Source: Internal KYC Review
-Date: 2026-07-11
-
-Entity: Alpha Global Holdings
-
-During the periodic KYC review, compliance officers identified that the company has a beneficial owner who appears on multiple international watchlists. The case has been escalated for enhanced due diligence.
-
-Source URL: internal://kyc_review_2026_07_11

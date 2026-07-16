@@ -1,5 +1,0 @@
-[tool.pytest.ini_options]
-# Bare `pytest` does not add the repo root to sys.path (only `python -m pytest` does).
-# Without this, `from contracts.models import ...` fails with ModuleNotFoundError.
-pythonpath = ["."]
-testpaths = ["tests"]
