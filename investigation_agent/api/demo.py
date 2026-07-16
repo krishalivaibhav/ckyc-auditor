@@ -73,11 +73,20 @@ def _banner(text: str):
 
 
 # ── the cast ──────────────────────────────────────────────────────────────────
+# The scenario replays the REAL Mallya chronology, so the timeline shows the
+# dates the story actually happened on — not "now". Anchors:
+#   2015-11-13  SBI-led consortium default coverage (phase 1, t0)
+#   2016-03-02  subject leaves India; banks move Supreme Court   (t0 + 110d)
+#   2016-03-14  ED registers the PMLA case over the IDBI loan    (t0 + 122d)
+#   2017-01-25  SEBI debarment order — the "+15 months" time skip (t0 + 439d)
+DEMO_T0 = datetime(2015, 11, 13, 9, 14, tzinfo=timezone.utc)
+
+
 def _customer(t0: datetime) -> Customer:
     return Customer(
         client_id="C9001", client_name="Vijay Mallya", client_type="Individual",
         pan="AEZPM4433K", country="IN", sector="Aviation & Beverages",
-        branch="Bengaluru", onboarding_date=date(2018, 5, 12),
+        branch="Bengaluru", onboarding_date=date(2011, 4, 18),
         exposure_inr=9_200_000_000,          # ₹920 Cr consortium exposure
         last_kyc_refresh=(t0 - timedelta(days=90)).date())
 
@@ -105,7 +114,10 @@ def _articles(t0: datetime) -> list[Signal]:
                  "facilities non-performing; recovery proceedings are being "
                  "considered against promoter Vijay Mallya.",
                  ["SBI", "Kingfisher Airlines"], ["FRAUD"], 0.72),
-        _article("SIG-DEMO-002", t0 + timedelta(days=120), "RSS:thehindu",
+        # 2016-03-02 — the day the story broke that he had left the country.
+        # (distinct times-of-day: real wire hits don't all land at t0's clock)
+        _article("SIG-DEMO-002", t0 + timedelta(days=110, hours=7, minutes=48),
+                 "RSS:thehindu",
                  "https://www.thehindu.com/mallya-leaves-india",
                  "Vijay Mallya leaves India as banks move Supreme Court "
                  "over ₹9,000-crore dues",
@@ -113,7 +125,9 @@ def _articles(t0: datetime) -> list[Signal]:
                  "businessman had left the country; lenders sought disclosure "
                  "of his assets.",
                  ["Supreme Court", "SBI"], ["FRAUD", "MONEY_LAUNDERING"], 0.81),
-        _article("SIG-DEMO-003", t0 + timedelta(days=270), "RSS:reuters",
+        # 2016-03-14 — ED registers the PMLA case over the IDBI loan.
+        _article("SIG-DEMO-003", t0 + timedelta(days=122, hours=2, minutes=16),
+                 "RSS:reuters",
                  "https://www.reuters.com/ed-mallya-idbi-case",
                  "ED files money-laundering case against Vijay Mallya over "
                  "IDBI Bank loan",
@@ -131,7 +145,7 @@ def _sanction_entry(t_sanction: datetime) -> WatchlistEntry:
         aliases=["Vijay Vittal Mallya"],
         alias_quality={"Vijay Vittal Mallya": "full_name"},
         pan="AEZPM4433K", status="active",
-        order_id="SEBI/WTM/GM/EFD/2027/031",
+        order_id="SEBI/WTM/GM/EFD/2017/031",
         order_date=t_sanction.date(),
         source_url=["https://www.sebi.gov.in/enforcement/orders/mallya-debarment.pdf"],
         first_seen=t_sanction, last_change=t_sanction)
@@ -178,7 +192,7 @@ def _connect() -> sqlite3.Connection:
 # ── phase 1: the first news breaks ───────────────────────────────────────────
 def start() -> dict:
     global _PHASE, _T0
-    _T0 = datetime.now(timezone.utc).replace(microsecond=0)
+    _T0 = DEMO_T0
     t0 = _T0
     customer = _customer(t0)
     a1 = _articles(t0)[0]
@@ -291,7 +305,8 @@ def timeskip() -> dict:
     if _PHASE < 1 or _T0 is None:
         raise RuntimeError("demo not started — toggle test mode first")
     t0 = _T0
-    t_sanction = t0 + timedelta(days=456)          # ~15 months
+    # 2017-01-25 — the SEBI debarment order (the "+15 months" the button skips).
+    t_sanction = t0 + timedelta(days=439, hours=5, minutes=1)
     customer = _customer(t0)
     arts = _articles(t0)
     a1, a2, a3 = arts

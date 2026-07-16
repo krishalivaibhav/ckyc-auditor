@@ -18,15 +18,23 @@ Endpoints (all GET):
     /api/entity/{client_id}/timeline
     /api/entity/{client_id}/case   the case for a client (no case_id needed)
     /api/entity/{client_id}/sar/pdf  the SAR rendered into casefile_sar_exact_template.html, as a PDF download
+    /api/entity/{client_id}/sar/html the same rendered SAR, served inline for preview (not an attachment)
     /api/case/{case_id}            evidence three-column + SAR + reviewer actions
     /api/case/{case_id}/sar
     /api/audit?object_id=
     /api/suppressions              REJECTED candidates with their reasons
+    /api/reports                   cases that carry a drafted SAR (the Reports tab)
     /api/metrics                   measured eval numbers (baseline vs ours)
 
 Writes (POST, JSON body) — the reviewer's terminal decision, straight to the sink:
-    /api/case/{case_id}/review       {action: BLACKLIST|DISMISS, note?, reviewer}
+    /api/case/{case_id}/review       {action: BLACKLIST|DISMISS|ESCALATE, note?, reviewer}
     /api/case/{case_id}/sar/review   {action: APPROVE|DENY, note?, reviewer}
+
+Risk-alert email (Gmail SMTP; recipient set in the Settings screen):
+    GET  /api/alert-config           {email, smtp_configured}
+    POST /api/alert-config           {email}  — set the alert recipient
+    POST /api/alert-config/test      send a test alert to the recipient
+  A HIGH/CRITICAL hit (the demo's +15-month time skip) emails the recipient.
 
 Live/test mode — the judges' demo (see investigation_agent/api/demo.py):
     GET  /api/mode                   {mode, phase}
@@ -43,16 +51,36 @@ import json
 import os
 import re
 import shutil
+import smtplib
 import sqlite3
 import subprocess
 import tempfile
 import uuid
 from datetime import datetime, timezone
+from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def _load_dotenv() -> None:
+    """Minimal stdlib `.env` loader (the read-api runs on system python3, not the
+    pipeline venv, so python-dotenv isn't available). Only sets keys that aren't
+    already in the environment, so a real env var always wins."""
+    env_file = ROOT / ".env"
+    if not env_file.exists():
+        return
+    for line in env_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, val = line.split("=", 1)
+        os.environ.setdefault(key.strip(), val.strip().strip('"').strip("'"))
+
+
+_load_dotenv()
 # The live sink is the pipeline's own DB — investigation_agent runs with that
 # folder as its CWD, so db/store.py materialises `ckyc.db` in there. The retired
 # db/seed.py wrote a stand-in at the repo root; prefer the pipeline sink when it
@@ -94,6 +122,109 @@ def _pipeline_post(path: str, timeout: float = 180.0) -> dict:
         raise RuntimeError(
             f"pipeline service unreachable at {PIPELINE_URL}{path}: {e}. "
             "Is the pipeline running? (./run_backend.sh starts it)")
+
+# ── Gmail alert emails ────────────────────────────────────────────────────────
+# When a HIGH/CRITICAL entity is hit (in the demo, that's the +15-month time skip
+# escalating Vijay Mallya EDD -> CRITICAL), email the compliance recipient the
+# reviewer configured in the Settings screen. Sender credentials come from .env
+# (ALERT_SMTP_USER / ALERT_SMTP_PASS); the recipient is persisted here.
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = 465
+ALERT_TIERS = {"HIGH", "CRITICAL"}
+ALERT_CONFIG_FILE = ROOT / "api" / ".alert_config.json"
+
+
+def _load_alert_email() -> str | None:
+    try:
+        return json.loads(ALERT_CONFIG_FILE.read_text()).get("email") or None
+    except (OSError, ValueError):
+        return None
+
+
+_ALERT_EMAIL = _load_alert_email()
+
+
+def _smtp_creds() -> tuple[str | None, str | None]:
+    user = os.environ.get("ALERT_SMTP_USER") or None
+    # Gmail shows app passwords with spaces; they work without them.
+    pw = (os.environ.get("ALERT_SMTP_PASS") or "").replace(" ", "") or None
+    return user, pw
+
+
+def _smtp_configured() -> bool:
+    user, pw = _smtp_creds()
+    return bool(user and pw)
+
+
+def send_alert_email(recipient: str, *, name: str, tier: str, client_id: str,
+                     case_id: str, exposure_inr: float | int | None = None,
+                     test: bool = False) -> None:
+    """Send one alert via Gmail SMTP (SSL). Raises on any failure so the caller
+    can report why the send didn't happen."""
+    user, pw = _smtp_creds()
+    if not (user and pw):
+        raise RuntimeError(
+            "SMTP not configured — set ALERT_SMTP_USER/ALERT_SMTP_PASS in .env")
+    if not recipient:
+        raise RuntimeError("no alert recipient configured")
+
+    exposure = ""
+    if exposure_inr:
+        cr = float(exposure_inr) / 1e7
+        exposure = f"\nExposure at risk : ₹{cr:,.2f} Cr"
+    subject = (f"[TechMKYC] {'TEST — ' if test else ''}{tier} risk alert — {name}")
+    body = (
+        f"{'This is a TEST alert from the TechMKYC dashboard.' if test else ''}\n"
+        f"A {tier} risk entity has been flagged by the continuous-KYC pipeline.\n\n"
+        f"Entity           : {name}\n"
+        f"Client ID        : {client_id}\n"
+        f"Risk tier        : {tier}\n"
+        f"Case             : {case_id}{exposure}\n\n"
+        "Open the dashboard alert queue to review the case, evidence and SAR "
+        "draft.\n\n— TechMKYC Autonomous Compliance System"
+    ).lstrip()
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = user
+    msg["To"] = recipient
+    msg.set_content(body)
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=20) as smtp:
+        smtp.login(user, pw)
+        smtp.send_message(msg)
+
+
+def _maybe_alert_on_timeskip(result: dict) -> dict | None:
+    """Called after the demo time skip. If it escalated to HIGH/CRITICAL and a
+    recipient is configured, email the alert. Never raises — the time skip must
+    still succeed even if the mail server is unreachable; the outcome is returned
+    for the UI to surface."""
+    tier = str(result.get("tier", "")).upper()
+    if tier not in ALERT_TIERS:
+        return None
+    if not _ALERT_EMAIL:
+        return {"sent": False, "reason": "no recipient configured in Settings"}
+    case_id = result.get("case_id", "")
+    name, client_id, exposure = case_id, "", None
+    try:                                   # enrich from the demo sink if we can
+        conn = connect()
+        try:
+            blob = _blob(conn, case_id)
+            cust = _cust(blob)
+            name = cust["name"]
+            client_id = blob.get("client_id", "")
+            exposure = _assessment(blob)["exposure_inr"]
+        finally:
+            conn.close()
+    except Exception:                      # noqa: BLE001 — best-effort enrichment
+        pass
+    try:
+        send_alert_email(_ALERT_EMAIL, name=name, tier=tier, client_id=client_id,
+                         case_id=case_id, exposure_inr=exposure)
+        return {"sent": True, "to": _ALERT_EMAIL, "tier": tier}
+    except Exception as e:                 # noqa: BLE001
+        return {"sent": False, "error": str(e), "to": _ALERT_EMAIL}
+
 
 # Measured by eval/evaluate.py in the pipeline repo (realistic cohort):
 # baseline naive name screening vs the ER ladder. alerts = fp / (1 - precision).
@@ -331,15 +462,22 @@ def _find_browser() -> str | None:
     return None
 
 
-def render_sar_pdf(c: dict) -> tuple[bytes, str]:
-    """Fill the template with this case's SAR, then print it to PDF via a
-    headless browser (the same Chrome `flutter run -d chrome` already needs —
-    no extra pip dependency for PDF rendering)."""
+def render_sar_html(c: dict) -> str:
+    """Fill casefile_sar_exact_template.html with this case's SAR. Shared by the
+    PDF route (printed to PDF) and the inline preview route (served as HTML)."""
     if not c.get("sar"):
         raise NotFound(f"no SAR drafted for case {c['case_id']}")
     html = SAR_TEMPLATE.read_text(encoding="utf-8")
     for key, val in _sar_template_fields(c).items():
         html = html.replace("{{" + key + "}}", _esc(val))
+    return html
+
+
+def render_sar_pdf(c: dict) -> tuple[bytes, str]:
+    """Fill the template with this case's SAR, then print it to PDF via a
+    headless browser (the same Chrome `flutter run -d chrome` already needs —
+    no extra pip dependency for PDF rendering)."""
+    html = render_sar_html(c)
 
     browser = _find_browser()
     if not browser:
@@ -416,6 +554,27 @@ def alerts(conn, q) -> list[dict]:
     return out
 
 
+def reports(conn) -> list[dict]:
+    """Reports tab: every case that carries a drafted SAR, projected to just the
+    card fields (name/tier/status/coverage). The dashboard previews / downloads
+    each via the /api/entity/{cid}/sar routes."""
+    out = []
+    for c in _blobs(conn):
+        s = _sar(c)
+        if not s:
+            continue
+        cu = _cust(c)
+        out.append({
+            "client_id": c["client_id"], "case_id": c["case_id"],
+            "name": cu["name"], "type": cu["type"],
+            "tier": c.get("tier", "NONE"),
+            "sar_status": s["status"],
+            "citation_coverage": s["citation_coverage"],
+        })
+    out.sort(key=lambda r: TIER_RANK.get(r["tier"], 0), reverse=True)
+    return out
+
+
 def entity360(conn, client_id: str) -> dict:
     c = _blob_for_client(conn, client_id)
     return {"customer": _cust(c), "assessment": _assessment(c),
@@ -476,9 +635,12 @@ def suppressions(conn) -> list[dict]:
 # append-only audit trail: UPDATE the Case (status + JSON blob), keep the SAR
 # row's status in sync, and INSERT exactly one audit_events row — all atomically.
 # The append-only triggers forbid UPDATE/DELETE on audit_events; we only INSERT.
-_ENTITY_ACTIONS = {   # action -> (case.decision, case.status, audit action)
+_ENTITY_ACTIONS = {   # action -> (case.decision | None keeps prior, case.status, audit action)
     "BLACKLIST": ("blacklisted", "ESCALATED", "CASE_BLACKLISTED"),
     "DISMISS": ("dismissed", "DISMISSED", "CASE_DISMISSED"),
+    # Escalate is NOT terminal: leave `decision` untouched so the case stays in
+    # the queue and a senior reviewer can still blacklist/dismiss it.
+    "ESCALATE": (None, "ESCALATED", "CASE_ESCALATED"),
 }
 _SAR_REVIEW = {       # action -> (sar.status, case.status | None = keep, audit action)
     "APPROVE": ("APPROVED", "ESCALATED", "SAR_APPROVED"),
@@ -521,11 +683,12 @@ def review_case(case_id: str, action: str, note: str, reviewer: str) -> dict:
             raise NotFound(f"case {case_id}")
         blob = json.loads(row["data"])
         before = {"status": row["status"], "decision": blob.get("decision")}
-        blob["decision"] = decision
+        if decision is not None:      # escalate keeps the prior decision
+            blob["decision"] = decision
         blob["status"] = new_status
         blob.setdefault("reviewer_actions", []).append(
             {"action": action, "note": note, "reviewer": reviewer, "at": _now_iso()})
-        after = {"status": new_status, "decision": decision}
+        after = {"status": new_status, "decision": blob.get("decision")}
         with conn:
             conn.execute("UPDATE cases SET status=?, data=? WHERE case_id=?",
                          (new_status, json.dumps(blob), case_id))
@@ -586,6 +749,16 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    def _send_html(self, html: str):
+        body = html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
@@ -661,7 +834,14 @@ class Handler(BaseHTTPRequestHandler):
                 raise BadRequest("time skip only works in test mode")
             result = _pipeline_post("/demo/timeskip")
             _PHASE = int(result.get("phase", 2))
-            return {"mode": _MODE, "phase": _PHASE}
+            alert = _maybe_alert_on_timeskip(result)
+            return {"mode": _MODE, "phase": _PHASE,
+                    **({"alert": alert} if alert else {})}
+
+        # /api/alert-config          set the risk-alert recipient email
+        # /api/alert-config/test     send a test alert to verify wiring
+        if parts[:2] == ["api", "alert-config"]:
+            return self._route_alert_config(parts[2:], body)
 
         if len(parts) >= 3 and parts[0] == "api" and parts[1] == "case":
             reviewer = str(body.get("reviewer") or "unknown")
@@ -673,19 +853,43 @@ class Handler(BaseHTTPRequestHandler):
                     return review_sar(cid, body.get("action"), note, reviewer)
         return _UNHANDLED
 
+    def _route_alert_config(self, sub, body):
+        global _ALERT_EMAIL
+        email = str(body.get("email") or _ALERT_EMAIL or "").strip()
+        if sub == ["test"]:               # POST /api/alert-config/test
+            if not email:
+                raise BadRequest("no recipient — save an alert email first")
+            send_alert_email(email, name="Test Entity", tier="CRITICAL",
+                             client_id="TEST-0000", case_id="CASE-TEST",
+                             exposure_inr=None, test=True)
+            return {"ok": True, "sent": True, "to": email}
+        if sub == []:                     # POST /api/alert-config
+            if not email or "@" not in email:
+                raise BadRequest(f"invalid email {email!r}")
+            _ALERT_EMAIL = email
+            try:
+                ALERT_CONFIG_FILE.write_text(json.dumps({"email": email}))
+            except OSError as e:
+                raise RuntimeError(f"could not persist alert config: {e}")
+            return {"email": _ALERT_EMAIL, "smtp_configured": _smtp_configured()}
+        return _UNHANDLED
+
     def do_GET(self):
         u = urlparse(self.path)
         parts = [unquote(p) for p in u.path.strip("/").split("/") if p]
         q = parse_qs(u.query)
         try:
-            # The PDF route returns bytes, not JSON — handled outside _route.
+            # The PDF/HTML SAR routes return bytes/markup, not JSON — handled
+            # outside _route.
             if len(parts) == 5 and parts[0] == "api" and parts[1] == "entity" \
-                    and parts[3:] == ["sar", "pdf"]:
+                    and parts[3] == "sar" and parts[4] in ("pdf", "html"):
                 conn = connect()
                 try:
                     blob = _blob_for_client(conn, parts[2])
                 finally:
                     conn.close()
+                if parts[4] == "html":
+                    return self._send_html(render_sar_html(blob))
                 data, filename = render_sar_pdf(blob)
                 return self._send_pdf(data, filename)
 
@@ -717,6 +921,9 @@ class Handler(BaseHTTPRequestHandler):
                         "sink_exists": db.exists()}
             case ["mode"]:
                 return {"mode": _MODE, "phase": _PHASE}
+            case ["alert-config"]:
+                return {"email": _ALERT_EMAIL,
+                        "smtp_configured": _smtp_configured()}
             case ["alerts"]:
                 return alerts(conn, q)
             case ["entity", cid]:
@@ -735,6 +942,8 @@ class Handler(BaseHTTPRequestHandler):
                 return audit(conn, q)
             case ["suppressions"]:
                 return suppressions(conn)
+            case ["reports"]:
+                return reports(conn)
             case ["metrics"]:
                 return METRICS
             case _:

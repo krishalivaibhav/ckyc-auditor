@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +6,8 @@ import '../features/auth/login_screen.dart';
 import '../features/entities/entity_list_screen.dart';
 import '../features/entities/entity_detail_screen.dart';
 import '../features/report/report_screen.dart';
+import '../features/report/reports_screen.dart';
+import '../features/settings/settings_screen.dart';
 import '../features/audit/audit_log_screen.dart';
 import '../widgets/responsive_scaffold.dart';
 
@@ -36,8 +37,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, _) => const EntityListScreen(),
           ),
           GoRoute(path: '/audit', builder: (_, _) => const AuditLogScreen()),
-          GoRoute(path: '/reports', builder: (_, _) => const Scaffold(body: Center(child: Text('Reports coming soon')))),
-          GoRoute(path: '/settings', builder: (_, _) => const Scaffold(body: Center(child: Text('Settings coming soon')))),
+          GoRoute(path: '/reports', builder: (_, _) => const ReportsScreen()),
+          GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
         ],
       ),
       GoRoute(

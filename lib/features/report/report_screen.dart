@@ -72,6 +72,8 @@ class _Report extends ConsumerWidget {
                 children: [
                   Expanded(child: _StatusBanner(status: sar.status)),
                   const SizedBox(width: 12),
+                  _PreviewSarButton(clientId: clientId, disabled: isDemo),
+                  const SizedBox(width: 8),
                   _DownloadPdfButton(clientId: clientId, disabled: isDemo),
                 ],
               ),
@@ -190,6 +192,34 @@ class _DecidedNote extends StatelessWidget {
               'append-only audit trail.',
       style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
     );
+  }
+}
+
+/// Opens the SAR filled into casefile_sar_exact_template.html as an inline HTML
+/// preview in a new browser tab — the reviewer sees the exact filed document
+/// before committing to a PDF download. Not wired for demo mode (no backend to
+/// render from); there the in-app rendering above is the preview.
+class _PreviewSarButton extends StatelessWidget {
+  final String clientId;
+  final bool disabled;
+  const _PreviewSarButton({required this.clientId, required this.disabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: disabled ? null : () => _preview(context),
+      icon: const Icon(Icons.visibility_outlined, size: 18),
+      label: const Text('Preview'),
+    );
+  }
+
+  Future<void> _preview(BuildContext context) async {
+    final uri = Uri.parse('${ApiConfig.baseUrl}/api/entity/$clientId/sar/html');
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open the SAR preview.')));
+    }
   }
 }
 

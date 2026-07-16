@@ -71,11 +71,17 @@ class _TimeSkipButtonState extends ConsumerState<_TimeSkipButton> {
         content: Text('Skipping 15 months — watch the backend terminal: '
             'two more articles land, then the SEBI sanction…')));
     try {
-      await ref.read(repositoryProvider).timeSkip();
+      final status = await ref.read(repositoryProvider).timeSkip();
       if (mounted) {
-        messenger.showSnackBar(const SnackBar(
+        final alert = switch (status.alertSent) {
+          true => ' · alert emailed to ${status.alertTo}',
+          false => ' · alert not sent (${status.alertError ?? 'check Settings'})',
+          null => '',
+        };
+        messenger.showSnackBar(SnackBar(
+            duration: const Duration(seconds: 6),
             content: Text('15 months later: sanction imposed — case '
-                'escalated to CRITICAL, SAR ready for download')));
+                'escalated to CRITICAL, SAR ready for download$alert')));
       }
     } catch (e) {
       if (mounted) {
@@ -280,6 +286,13 @@ class _DecisionPanel extends ConsumerWidget {
               label: const Text('Blacklist entity'),
             ),
             OutlinedButton.icon(
+              onPressed: () => _review(context, ref, c, EntityDecision.escalate),
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFEA580C)),
+              icon: const Icon(Icons.arrow_upward, size: 18),
+              label: const Text('Escalate'),
+            ),
+            OutlinedButton.icon(
               onPressed: () => _review(context, ref, c, EntityDecision.dismiss),
               icon: const Icon(Icons.close, size: 18),
               label: const Text('Dismiss as false positive'),
@@ -292,15 +305,36 @@ class _DecisionPanel extends ConsumerWidget {
 
   Future<void> _review(
       BuildContext context, WidgetRef ref, Case c, String action) async {
-    final blacklist = action == EntityDecision.blacklist;
+    final (title, message, confirmLabel, danger, past) = switch (action) {
+      EntityDecision.blacklist => (
+          'Blacklist entity',
+          'Confirm this entity is a true match and should be blacklisted.',
+          'Blacklist',
+          true,
+          'Blacklisted',
+        ),
+      EntityDecision.escalate => (
+          'Escalate case',
+          'Route this case to senior compliance for review. It stays open in '
+              'the queue and can still be blacklisted or dismissed.',
+          'Escalate',
+          false,
+          'Escalated',
+        ),
+      _ => (
+          'Dismiss case',
+          'Confirm this alert is a false positive and can be dismissed.',
+          'Dismiss',
+          false,
+          'Dismissed',
+        ),
+    };
     final note = await promptDecision(
       context,
-      title: blacklist ? 'Blacklist entity' : 'Dismiss case',
-      message: blacklist
-          ? 'Confirm this entity is a true match and should be blacklisted.'
-          : 'Confirm this alert is a false positive and can be dismissed.',
-      confirmLabel: blacklist ? 'Blacklist' : 'Dismiss',
-      danger: blacklist,
+      title: title,
+      message: message,
+      confirmLabel: confirmLabel,
+      danger: danger,
     );
     if (note == null) return; // cancelled
     final reviewer = ref.read(sessionProvider).reviewerName ?? 'unknown';
@@ -313,8 +347,7 @@ class _DecisionPanel extends ConsumerWidget {
           );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(
-                '${blacklist ? 'Blacklisted' : 'Dismissed'} · logged as human:$reviewer')));
+            content: Text('$past · logged as human:$reviewer')));
       }
     } catch (e) {
       if (context.mounted) {
@@ -711,11 +744,22 @@ class _TimelineRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(DateFormat('d MMM yyyy, HH:mm').format(e.date.toLocal()),
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: scheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w600)),
+                  // When the news/event is dated — full date AND time so the
+                  // reviewer can see exactly when each item landed (matters most
+                  // in the scripted test-mode timeline, where events are minutes
+                  // to months apart).
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.schedule,
+                        size: 13, color: scheme.onSurfaceVariant),
+                    const SizedBox(width: 5),
+                    Text(
+                        DateFormat('EEE, d MMM yyyy · HH:mm')
+                            .format(e.date.toLocal()),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600)),
+                  ]),
                   const SizedBox(height: 4),
                   Text(e.event,
                       style: const TextStyle(

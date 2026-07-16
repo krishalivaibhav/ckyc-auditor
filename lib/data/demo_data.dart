@@ -460,7 +460,7 @@ class DemoData {
           clientId: 'c-2003',
           date: _daysAgo(7),
           event:
-              'SEBI interim order revoked on appeal — risk DE-ESCALATED to EDD',
+              'SEBI interim order revoked on appeal — risk DE-ESCALATED to Enhanced Review',
           evidenceRefs: const ['EV-102'],
           tierBefore: RiskTier.high,
           tierAfter: RiskTier.edd),

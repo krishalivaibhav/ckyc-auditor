@@ -299,9 +299,11 @@ extension RiskTierX on RiskTier {
         RiskTier.unknown => 'UNKNOWN',
       };
 
-  /// Human label for the badge.
+  /// Human label for the badge. Plain-language names instead of the EDD
+  /// (Enhanced Due Diligence) jargon so non-specialists can read the queue.
   String get label => switch (this) {
-        RiskTier.eddLite => 'EDD Lite',
+        RiskTier.edd => 'Enhanced Review',
+        RiskTier.eddLite => 'Standard Review',
         _ => wire[0] + wire.substring(1).toLowerCase(),
       };
 
@@ -589,7 +591,10 @@ class EntityDecision {
   EntityDecision._();
   static const blacklist = 'BLACKLIST';
   static const dismiss = 'DISMISS';
-  static const all = [blacklist, dismiss];
+  // Route the case to senior compliance without closing it — not terminal, so
+  // the case stays actionable (a reviewer can still blacklist/dismiss later).
+  static const escalate = 'ESCALATE';
+  static const all = [blacklist, dismiss, escalate];
 }
 
 class SarDecision {
@@ -690,6 +695,40 @@ class MetricsSnapshot {
         alerts: (j['alerts'] as num?)?.toInt() ?? 0,
         precision: _double(j['precision']),
         recall: _double(j['recall']),
+      );
+}
+
+/// A row in the Reports tab: one entity that has a drafted SAR, with just
+/// enough to render the card (name/tier/status/coverage) and link to the
+/// full draft, preview and PDF download. Assembled server-side from cases
+/// that carry a SAR.
+class SarReport {
+  final String clientId;
+  final String caseId;
+  final String name;
+  final String type; // Individual | Company
+  final RiskTier tier;
+  final String sarStatus; // draft | approved | denied
+  final double citationCoverage;
+
+  const SarReport({
+    required this.clientId,
+    required this.caseId,
+    required this.name,
+    required this.type,
+    required this.tier,
+    required this.sarStatus,
+    required this.citationCoverage,
+  });
+
+  factory SarReport.fromJson(Map<String, dynamic> j) => SarReport(
+        clientId: j['client_id'].toString(),
+        caseId: j['case_id'].toString(),
+        name: j['name'] as String,
+        type: (j['type'] as String?) ?? 'Individual',
+        tier: riskTierFromString(j['tier'] as String?),
+        sarStatus: (j['sar_status'] as String?) ?? 'draft',
+        citationCoverage: _double(j['citation_coverage']),
       );
 }
 

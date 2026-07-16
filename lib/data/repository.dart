@@ -86,6 +86,9 @@ abstract class KycRepository {
   /// Screen 5 — the suppression log (alerts we did NOT raise, and why).
   Future<List<Suppression>> fetchSuppressions();
 
+  /// Reports tab — every case that carries a drafted SAR (preview + download).
+  Future<List<SarReport>> fetchReports();
+
   /// Before/after toggle — precision/recall, naive screening vs our system.
   Future<Metrics> fetchMetrics();
 
@@ -110,6 +113,17 @@ abstract class KycRepository {
 
   /// Advance the test scenario +15 months (3 news articles + the sanction).
   Future<DemoStatus> timeSkip();
+
+  // ── risk-alert email (Settings screen) ────────────────────────────────────
+
+  /// Current alert recipient + whether the backend can send (SMTP configured).
+  Future<AlertConfig> fetchAlertConfig();
+
+  /// Set the recipient email that HIGH/CRITICAL hits are mailed to.
+  Future<AlertConfig> setAlertEmail(String email);
+
+  /// Send a test alert to verify the wiring end-to-end.
+  Future<void> sendTestAlert({String? email});
 }
 
 /// Live/test mode status. Not part of the six-screen data contract — pure
@@ -118,17 +132,55 @@ class DemoStatus {
   final String mode; // 'live' | 'test'
   final int phase; // 0 none, 1 first news, 2 after time skip
 
-  const DemoStatus({required this.mode, required this.phase});
+  // Populated only by the time-skip response, when the escalation to
+  // HIGH/CRITICAL triggered a risk-alert email. Null when no alert was attempted.
+  final bool? alertSent;
+  final String? alertTo;
+  final String? alertError;
+
+  const DemoStatus({
+    required this.mode,
+    required this.phase,
+    this.alertSent,
+    this.alertTo,
+    this.alertError,
+  });
 
   bool get isTest => mode == 'test';
   bool get canTimeSkip => isTest && phase == 1;
 
-  factory DemoStatus.fromJson(Map<String, dynamic> j) => DemoStatus(
-        mode: (j['mode'] as String?) ?? 'live',
-        phase: (j['phase'] as num?)?.toInt() ?? 0,
-      );
+  factory DemoStatus.fromJson(Map<String, dynamic> j) {
+    final alert = j['alert'] as Map<String, dynamic>?;
+    return DemoStatus(
+      mode: (j['mode'] as String?) ?? 'live',
+      phase: (j['phase'] as num?)?.toInt() ?? 0,
+      alertSent: alert?['sent'] as bool?,
+      alertTo: alert?['to'] as String?,
+      alertError: (alert?['error'] ?? alert?['reason']) as String?,
+    );
+  }
 
   static const live = DemoStatus(mode: 'live', phase: 0);
+}
+
+/// Risk-alert email config (Settings screen). [email] is the recipient the
+/// backend mails on a HIGH/CRITICAL hit; [smtpConfigured] is whether the sender
+/// (Gmail app password) is present in the backend's .env.
+class AlertConfig {
+  final String? email;
+  final bool smtpConfigured;
+
+  const AlertConfig({this.email, this.smtpConfigured = false});
+
+  bool get hasRecipient => email != null && email!.trim().isNotEmpty;
+  bool get enabled => hasRecipient && smtpConfigured;
+
+  factory AlertConfig.fromJson(Map<String, dynamic> j) => AlertConfig(
+        email: j['email'] as String?,
+        smtpConfigured: (j['smtp_configured'] as bool?) ?? false,
+      );
+
+  static const empty = AlertConfig();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -256,6 +308,14 @@ class ApiRepository implements KycRepository {
   }
 
   @override
+  Future<List<SarReport>> fetchReports() async {
+    final list = await _get('/api/reports') as List;
+    return list
+        .map((e) => SarReport.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
   Future<Metrics> fetchMetrics() async {
     final j = await _get('/api/metrics') as Map<String, dynamic>;
     return Metrics.fromJson(j);
@@ -336,6 +396,26 @@ class ApiRepository implements KycRepository {
     final j = await _post('/api/demo/timeskip', {}) as Map<String, dynamic>;
     _bump();
     return DemoStatus.fromJson(j);
+  }
+
+  // ── risk-alert email ───────────────────────────────────────────────────────
+  @override
+  Future<AlertConfig> fetchAlertConfig() async {
+    final j = await _get('/api/alert-config') as Map<String, dynamic>;
+    return AlertConfig.fromJson(j);
+  }
+
+  @override
+  Future<AlertConfig> setAlertEmail(String email) async {
+    final j = await _post('/api/alert-config', {'email': email})
+        as Map<String, dynamic>;
+    _bump();
+    return AlertConfig.fromJson(j);
+  }
+
+  @override
+  Future<void> sendTestAlert({String? email}) async {
+    await _post('/api/alert-config/test', email == null ? {} : {'email': email});
   }
 
   // ── retired schema.md §1–6 (entities/verdicts/risk_events) — no DB backing ─
@@ -620,6 +700,26 @@ class DemoRepository implements KycRepository {
       [...DemoData.suppressions];
 
   @override
+  Future<List<SarReport>> fetchReports() async {
+    final out = <SarReport>[];
+    for (final c in _cases.values) {
+      final sar = c.sar;
+      if (sar == null) continue;
+      out.add(SarReport(
+        clientId: c.clientId,
+        caseId: c.caseId,
+        name: c.customer.name,
+        type: c.customer.type,
+        tier: c.assessment.tier,
+        sarStatus: sar.status,
+        citationCoverage: sar.citationCoverage,
+      ));
+    }
+    out.sort((a, b) => b.tier.rank.compareTo(a.tier.rank));
+    return out;
+  }
+
+  @override
   Future<Metrics> fetchMetrics() async => DemoData.metrics;
 
   // Offline fixtures have no backend to run the scripted scenario against.
@@ -631,6 +731,24 @@ class DemoRepository implements KycRepository {
 
   @override
   Future<DemoStatus> timeSkip() async => DemoStatus.live;
+
+  // Offline demo has no backend to send mail from — keep the recipient in
+  // memory so the Settings screen still works, but sending is unavailable.
+  String? _alertEmail;
+
+  @override
+  Future<AlertConfig> fetchAlertConfig() async =>
+      AlertConfig(email: _alertEmail, smtpConfigured: false);
+
+  @override
+  Future<AlertConfig> setAlertEmail(String email) async {
+    _alertEmail = email;
+    return AlertConfig(email: email, smtpConfigured: false);
+  }
+
+  @override
+  Future<void> sendTestAlert({String? email}) async => throw StateError(
+      'Email alerts require the backend — not available in offline demo mode.');
 
   @override
   Future<void> replay({
@@ -737,9 +855,21 @@ final suppressionsProvider = FutureProvider<List<Suppression>>((ref) async {
   return ref.watch(repositoryProvider).fetchSuppressions();
 });
 
+/// Reports tab — cases with a drafted SAR, auto-refreshed on change events.
+final reportsProvider = FutureProvider<List<SarReport>>((ref) async {
+  ref.watch(changesProvider);
+  return ref.watch(repositoryProvider).fetchReports();
+});
+
 /// Before/after toggle metrics.
 final metricsProvider = FutureProvider<Metrics>((ref) async {
   return ref.watch(repositoryProvider).fetchMetrics();
+});
+
+/// Risk-alert email config (Settings screen) — recipient + SMTP availability.
+final alertConfigProvider = FutureProvider<AlertConfig>((ref) async {
+  ref.watch(changesProvider);
+  return ref.watch(repositoryProvider).fetchAlertConfig();
 });
 
 /// Live/test mode + scenario phase. Re-fetched on every change event so the

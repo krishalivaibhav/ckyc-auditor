@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/download.dart';
 import '../../data/repository.dart';
 import '../../models/models.dart';
 import '../../widgets/mode_toggle.dart';
@@ -134,22 +135,88 @@ class _QueueState extends ConsumerState<_Queue> {
         const SnackBar(content: Text('Refreshing alert queue…')));
   }
 
-  void _export() {
-    final rows = _filtered;
-    final buf = StringBuffer('Entity,Type,Tier,Status,Exposure (INR)\n');
-    String esc(String s) => '"${s.replaceAll('"', '""')}"';
-    for (final a in rows) {
-      buf.writeln([
-        esc(a.name),
-        esc(a.type),
-        esc(a.tier.label),
-        esc(_statusLabel(a.status)),
+  static const _cols = ['Entity', 'Type', 'Tier', 'Status', 'Exposure (INR)'];
+
+  List<String> _cells(Alert a) => [
+        a.name,
+        a.type,
+        a.tier.label,
+        _statusLabel(a.status),
         a.exposureInr.toStringAsFixed(0),
-      ].join(','));
+      ];
+
+  void _snack(String msg) => ScaffoldMessenger.of(context)
+      .showSnackBar(SnackBar(content: Text(msg)));
+
+  /// Run a web-only export and report success/failure via a snackbar (the
+  /// download bridge throws on non-web builds).
+  void _guard(void Function() action, String okMsg) {
+    try {
+      action();
+      _snack(okMsg);
+    } catch (e) {
+      _snack('Export failed: $e');
+    }
+  }
+
+  /// Copy the filtered queue to the clipboard as CSV.
+  void _copyCsv() {
+    final rows = _filtered;
+    String esc(String s) => '"${s.replaceAll('"', '""')}"';
+    final buf = StringBuffer('${_cols.join(',')}\n');
+    for (final a in rows) {
+      buf.writeln(_cells(a).map(esc).join(','));
     }
     Clipboard.setData(ClipboardData(text: buf.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Copied ${rows.length} alerts as CSV to clipboard')));
+    _snack('Copied ${rows.length} alerts as CSV to clipboard');
+  }
+
+  /// Download the filtered queue as an Excel-openable .xls (HTML table).
+  void _downloadExcel() {
+    final rows = _filtered;
+    String esc(String s) => s
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    final b = StringBuffer(
+        '<html><head><meta charset="utf-8"></head><body><table border="1">'
+        '<tr>${_cols.map((c) => '<th>$c</th>').join()}</tr>');
+    for (final a in rows) {
+      b.write('<tr>${_cells(a).map((c) => '<td>${esc(c)}</td>').join()}</tr>');
+    }
+    b.write('</table></body></html>');
+    _guard(
+        () => downloadFile(
+            'alert-queue.xls', b.toString(), 'application/vnd.ms-excel'),
+        '${rows.length} alerts exported to Excel');
+  }
+
+  /// Open a print-ready view of the filtered queue; the user saves it as PDF.
+  void _downloadPdf() {
+    final rows = _filtered;
+    String esc(String s) => s
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;');
+    final body = StringBuffer();
+    for (final a in rows) {
+      body.write('<tr>${_cells(a).map((c) => '<td>${esc(c)}</td>').join()}</tr>');
+    }
+    final html = '''<!doctype html><html><head><meta charset="utf-8">
+<title>Alert Queue</title><style>
+  body{font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;margin:32px}
+  h1{font-size:20px;margin:0 0 4px}
+  .meta{color:#666;font-size:12px;margin-bottom:16px}
+  table{border-collapse:collapse;width:100%}
+  th,td{border:1px solid #d1d5db;padding:8px 10px;text-align:left;font-size:12px}
+  th{background:#f3f4f6;text-transform:uppercase;letter-spacing:.5px}
+</style></head><body onload="window.print()">
+  <h1>Alert Queue</h1>
+  <div class="meta">${rows.length} alerts · exported ${DateTime.now().toLocal()}</div>
+  <table><tr>${_cols.map((c) => '<th>$c</th>').join()}</tr>$body</table>
+</body></html>''';
+    _guard(() => openHtmlForPrint(html),
+        'Opening print view — choose "Save as PDF"');
   }
 
   @override
@@ -211,8 +278,8 @@ class _QueueState extends ConsumerState<_Queue> {
                 ('all', 'All tiers'),
                 ('CRITICAL', 'Critical'),
                 ('HIGH', 'High'),
-                ('EDD', 'EDD'),
-                ('EDD_LITE', 'EDD Lite'),
+                ('EDD', 'Enhanced Review'),
+                ('EDD_LITE', 'Standard Review'),
                 ('MONITOR', 'Monitor'),
               ],
               onSelected: (v) => setState(() => _tier = v),
@@ -234,10 +301,10 @@ class _QueueState extends ConsumerState<_Queue> {
                 onChanged: (v) => setState(() => _query = v)),
             _ActionButton(
                 icon: Icons.refresh, label: 'Refresh', onTap: _refresh),
-            _ActionButton(
-                icon: Icons.file_download_outlined,
-                label: 'Export',
-                onTap: _export),
+            _ExportMenu(
+                onExcel: _downloadExcel,
+                onPdf: _downloadPdf,
+                onCopyCsv: _copyCsv),
             const ModeToggle(),
           ],
         ),
@@ -400,6 +467,78 @@ class _ActionButton extends StatelessWidget {
                     fontWeight: FontWeight.w500)),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+/// Export split-button: same look as [_ActionButton], but opens a menu offering
+/// Excel / PDF / copy-as-CSV.
+class _ExportMenu extends StatelessWidget {
+  final VoidCallback onExcel;
+  final VoidCallback onPdf;
+  final VoidCallback onCopyCsv;
+  const _ExportMenu(
+      {required this.onExcel, required this.onPdf, required this.onCopyCsv});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return PopupMenuButton<String>(
+      tooltip: 'Export',
+      position: PopupMenuPosition.under,
+      onSelected: (v) => switch (v) {
+        'excel' => onExcel(),
+        'pdf' => onPdf(),
+        _ => onCopyCsv(),
+      },
+      itemBuilder: (_) => const [
+        PopupMenuItem(
+          value: 'excel',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.grid_on_outlined, size: 18),
+            title: Text('Download as Excel'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'pdf',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.picture_as_pdf_outlined, size: 18),
+            title: Text('Download as PDF'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'csv',
+          child: ListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.content_copy_outlined, size: 18),
+            title: Text('Copy as CSV'),
+          ),
+        ),
+      ],
+      child: Container(
+        height: 38,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: scheme.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.file_download_outlined, size: 18, color: scheme.primary),
+          const SizedBox(width: 6),
+          Text('Export',
+              style: TextStyle(
+                  fontSize: 13.5,
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w500)),
+          const SizedBox(width: 2),
+          Icon(Icons.expand_more, size: 18, color: scheme.primary),
+        ]),
       ),
     );
   }
