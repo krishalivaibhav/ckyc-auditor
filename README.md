@@ -9,6 +9,10 @@ drafts a fully-cited SAR for human sign-off, emails the compliance team the mome
 high-risk entity is hit, and records every step in an append-only audit trail. A
 Flutter dashboard is the human reviewer's cockpit.
 
+## 🎥 Demo video
+
+> **▶️ Watch the demo: https://drive.google.com/file/d/1R3mS-lTVGo3MzPkBVAFhHl0yYf4Veg0i/view?usp=drivesdk**
+
 ---
 
 ## 1. The problem (and our thesis)
