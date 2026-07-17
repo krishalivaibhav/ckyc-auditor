@@ -1,4 +1,4 @@
-"""The judges' demo: a scripted two-phase Vijay Mallya scenario.
+"""The judges' demo: a scripted two-phase Vijay M. scenario.
 
 TEST MODE. The dashboard toggles live -> test; the read-API forwards here. This
 module drives the REAL agent functions — the ER ladder (core/resolver), the
@@ -13,7 +13,7 @@ its own demo DB (ckyc_demo.db), which the read-API serves while in test mode.
                                    investigation finds no corroborating
                                    identifier yet -> EDD case, SAR drafted.
     Phase 2  (time-skip +15 mo)    two more articles land, then SEBI debars
-                                   Vijay Mallya (PAN on the entry). Sanctions
+                                   Vijay M. (PAN on the entry). Sanctions
                                    agent fires; ambiguity confirms PAN_EXACT;
                                    investigation corroborates -> CRITICAL,
                                    full SAR with citations.
@@ -84,7 +84,7 @@ DEMO_T0 = datetime(2015, 11, 13, 9, 14, tzinfo=timezone.utc)
 
 def _customer(t0: datetime) -> Customer:
     return Customer(
-        client_id="C9001", client_name="Vijay Mallya", client_type="Individual",
+        client_id="C9001", client_name="Vijay M.", client_type="Individual",
         pan="AEZPM4433K", country="IN", sector="Aviation & Beverages",
         branch="Bengaluru", onboarding_date=date(2011, 4, 18),
         exposure_inr=9_200_000_000,          # ₹920 Cr consortium exposure
@@ -100,7 +100,7 @@ def _article(sid, at, source, url, headline, excerpt, orgs, typology, severity):
         signal_id=sid, signal_type="ADVERSE_MEDIA", occurred_at=at,
         ingested_at=at, source=source, source_url=url,
         source_credibility=0.85, headline=headline, raw_excerpt=excerpt,
-        content_hash=_hash(headline + url), mentioned_names=["Vijay Mallya"],
+        content_hash=_hash(headline + url), mentioned_names=["Vijay M."],
         mentioned_orgs=orgs, risk_typology=typology, severity=severity)
 
 
@@ -112,14 +112,14 @@ def _articles(t0: datetime) -> list[Signal]:
                  "17-bank consortium led by SBI",
                  "The consortium has declared the airline's promoter-backed "
                  "facilities non-performing; recovery proceedings are being "
-                 "considered against promoter Vijay Mallya.",
+                 "considered against promoter Vijay M..",
                  ["SBI", "Kingfisher Airlines"], ["FRAUD"], 0.72),
         # 2016-03-02 — the day the story broke that he had left the country.
         # (distinct times-of-day: real wire hits don't all land at t0's clock)
         _article("SIG-DEMO-002", t0 + timedelta(days=110, hours=7, minutes=48),
                  "RSS:thehindu",
                  "https://www.thehindu.com/mallya-leaves-india",
-                 "Vijay Mallya leaves India as banks move Supreme Court "
+                 "Vijay M. leaves India as banks move Supreme Court "
                  "over ₹9,000-crore dues",
                  "Counsel for the consortium told the Supreme Court the "
                  "businessman had left the country; lenders sought disclosure "
@@ -129,7 +129,7 @@ def _articles(t0: datetime) -> list[Signal]:
         _article("SIG-DEMO-003", t0 + timedelta(days=122, hours=2, minutes=16),
                  "RSS:reuters",
                  "https://www.reuters.com/ed-mallya-idbi-case",
-                 "ED files money-laundering case against Vijay Mallya over "
+                 "ED files money-laundering case against Vijay M. over "
                  "IDBI Bank loan",
                  "The Enforcement Directorate registered a case under PMLA "
                  "over the ₹900-crore IDBI loan; the CBI is investigating "
@@ -141,9 +141,9 @@ def _articles(t0: datetime) -> list[Signal]:
 def _sanction_entry(t_sanction: datetime) -> WatchlistEntry:
     return WatchlistEntry(
         watchlist_id="NK-DEMO-VM01", list="NSE_SEBI_DEBARRED",
-        entity_type="Individual", name="Vijay Mallya",
-        aliases=["Vijay Vittal Mallya"],
-        alias_quality={"Vijay Vittal Mallya": "full_name"},
+        entity_type="Individual", name="Vijay M.",
+        aliases=["Vijay Vittal M."],
+        alias_quality={"Vijay Vittal M.": "full_name"},
         pan="AEZPM4433K", status="active",
         order_id="SEBI/WTM/GM/EFD/2017/031",
         order_date=t_sanction.date(),
@@ -157,13 +157,13 @@ def _sanction_signal(t_sanction: datetime) -> Signal:
         occurred_at=t_sanction, ingested_at=t_sanction, source="NSE_CIRCULAR",
         source_url="https://www.sebi.gov.in/enforcement/orders/mallya-debarment.pdf",
         source_credibility=1.0,
-        headline="SEBI bars Vijay Mallya from securities market; declared "
+        headline="SEBI bars Vijay M. from securities market; declared "
                  "wilful defaulter by consortium",
-        raw_excerpt="Whole-time member order restrains Vijay Mallya from "
+        raw_excerpt="Whole-time member order restrains Vijay M. from "
                     "accessing the securities market for the diversion of "
                     "funds from a listed entity.",
         content_hash=_hash("SEBI-DEMO-VM01"),
-        mentioned_names=["Vijay Mallya"], mentioned_orgs=["SEBI", "NSE"],
+        mentioned_names=["Vijay M."], mentioned_orgs=["SEBI", "NSE"],
         risk_typology=["REGULATORY_ACTION"], severity=0.97)
 
 
@@ -200,12 +200,12 @@ def start() -> dict:
     _banner("TEST MODE — scenario start: adverse media hits the wire")
     _say("NEWS AGENT", "scanning sources (RSS/GDELT)…")
     _say("NEWS AGENT", f'HIT  "{a1.headline}"  ({a1.source})')
-    _say("NEWS AGENT", 'entity resolution: article is about "Vijay Mallya" '
+    _say("NEWS AGENT", 'entity resolution: article is about "Vijay M." '
                        "(confidence 0.85, name verbatim in text)")
     _say("NEWS AGENT", "triage: ADVERSE — typology FRAUD, severity 0.72")
     _say("NEWS AGENT", "→ POST /signals/ingest  (payload: Signal SIG-DEMO-001)")
 
-    _say("AMBIGUITY AGENT", 'resolving "Vijay Mallya" against the customer book…')
+    _say("AMBIGUITY AGENT", 'resolving "Vijay M." against the customer book…')
     _say("AMBIGUITY AGENT", f"NAME MATCH: customer {customer.client_id} "
                             f"(PAN {customer.pan}, {customer.branch}, "
                             f"exposure ₹{customer.exposure_inr / 1e7:,.0f} Cr)")
@@ -292,7 +292,7 @@ def start() -> dict:
     _say("SINK", f"persisted {case.case_id} (tier {case.tier}, "
                  f"status {case.status}, SAR drafted) → ckyc_demo.db")
     _say("UI", "dashboard refresh → alert queue now shows 1 entity: "
-               "Vijay Mallya (EDD)")
+               "Vijay M. (EDD)")
     _banner("Phase 1 complete — waiting for the time skip (+15 months)")
 
     _PHASE = 1
