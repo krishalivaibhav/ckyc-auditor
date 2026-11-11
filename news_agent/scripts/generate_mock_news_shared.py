@@ -33,51 +33,51 @@ def _at(hours_ago: int) -> str:
 
 
 ARTICLES = [
-    # ── Muhammad Saeed (C1007, golden CRITICAL — UAPA) ────────────────────────
+    # ── Yusuf Rizvani (C1007, golden CRITICAL — UAPA) ────────────────────────
     {
-        "entity_name": "Muhammad Saeed",
-        "title": "NIA widens terror financing probe; Muhammad Saeed among names under scrutiny",
+        "entity_name": "Yusuf Rizvani",
+        "title": "NIA widens terror financing probe; Yusuf Rizvani among names under scrutiny",
         "description": ("The National Investigation Agency (NIA), acting on a Ministry of "
                         "Home Affairs UAPA notification, has widened its terror financing "
-                        "probe. Investigators said Muhammad Saeed is among those being "
+                        "probe. Investigators said Yusuf Rizvani is among those being "
                         "examined for suspected cross-border transfers."),
-        "source": "The Hindu", "hours_ago": 6, "slug": "nia-terror-probe-saeed",
+        "source": "The Southern Herald", "hours_ago": 6, "slug": "nia-terror-probe-Rizvani",
     },
     {
-        "entity_name": "Muhammad Saeed",
-        "title": "Muhammad Saeed's counsel denies wrongdoing as agencies continue inquiry",
-        "description": ("Counsel for Muhammad Saeed issued a statement denying all "
+        "entity_name": "Yusuf Rizvani",
+        "title": "Yusuf Rizvani's counsel denies wrongdoing as agencies continue inquiry",
+        "description": ("Counsel for Yusuf Rizvani issued a statement denying all "
                         "allegations in the ongoing terror financing investigation and "
                         "said his client is cooperating with the NIA."),
-        "source": "Hindustan Times", "hours_ago": 3, "slug": "saeed-counsel-denies",
+        "source": "National Courier", "hours_ago": 3, "slug": "Rizvani-counsel-denies",
     },
-    # ── Dipak Dwiwedi (C1001 golden HIGH; C1002 same name, different PAN) ─────
+    # ── Rohan Vashisht (C1001 golden HIGH; C1002 same name, different PAN) ─────
     {
-        "entity_name": "Dipak Dwiwedi",
-        "title": "SEBI moves to debar Dipak Dwiwedi over commodity market manipulation",
+        "entity_name": "Rohan Vashisht",
+        "title": "SEBI moves to debar Rohan Vashisht over commodity market manipulation",
         "description": ("The Securities and Exchange Board of India (SEBI) has issued an "
-                        "order to debar Dipak Dwiwedi from the securities market following "
+                        "order to debar Rohan Vashisht from the securities market following "
                         "an NSE surveillance report on suspected market manipulation in "
                         "commodity contracts."),
-        "source": "Economic Times", "hours_ago": 12, "slug": "sebi-debar-dwiwedi",
+        "source": "Metro Business Wire", "hours_ago": 12, "slug": "sebi-debar-Vashisht",
     },
     {
-        "entity_name": "Dipak Dwiwedi",
-        "title": "Dipak Dwiwedi elected treasurer of Mumbai commodities trade association",
+        "entity_name": "Rohan Vashisht",
+        "title": "Rohan Vashisht elected treasurer of Mumbai commodities trade association",
         "description": ("The Mumbai commodities trade association announced its new office "
-                        "bearers this week. Dipak Dwiwedi was elected treasurer for a "
+                        "bearers this week. Rohan Vashisht was elected treasurer for a "
                         "two-year term."),
-        "source": "Local Business Daily", "hours_ago": 40, "slug": "dwiwedi-treasurer",
+        "source": "Local Business Daily", "hours_ago": 40, "slug": "Vashisht-treasurer",
     },
-    # ── Sumalatha Ambareesh (C1005, golden EDD — PEP) ─────────────────────────
+    # ── Kavya Raghunath (C1005, golden EDD — PEP) ─────────────────────────
     {
-        "entity_name": "Sumalatha Ambareesh",
+        "entity_name": "Kavya Raghunath",
         "title": "Anti-corruption panel summons questioned over alleged bribery in constituency works",
         "description": ("An anti-corruption panel has issued summons in a probe into alleged "
                         "bribery in constituency development works. Parliament records show "
-                        "Sumalatha Ambareesh, a sitting member, has been asked to respond to "
+                        "Kavya Raghunath, a sitting member, has been asked to respond to "
                         "questions on undocumented payments."),
-        "source": "Reuters", "hours_ago": 20, "slug": "ambareesh-bribery-probe",
+        "source": "Wire Desk", "hours_ago": 20, "slug": "Raghunath-bribery-probe",
     },
     # ── Amir Khan (C1003, golden NONE — the bare-alias name-collision story) ──
     {
@@ -86,7 +86,7 @@ ARTICLES = [
         "description": ("Actor Amir Khan told reporters his upcoming feature has wrapped "
                         "principal photography in Jaipur and is slated for a festival "
                         "premiere next spring."),
-        "source": "NDTV", "hours_ago": 8, "slug": "amir-khan-film",
+        "source": "Channel 9 News", "hours_ago": 8, "slug": "amir-khan-film",
     },
     # ── Clean customers: benign coverage only (false-positive suppression) ────
     {
@@ -95,15 +95,15 @@ ARTICLES = [
         "description": ("Fintech startup PayLeaf announced that Tanvi Chatterjee has been "
                         "appointed to its advisory board, citing her decade of experience "
                         "in retail payments."),
-        "source": "Moneycontrol", "hours_ago": 15, "slug": "chatterjee-board",
+        "source": "MarketPulse", "hours_ago": 15, "slug": "chatterjee-board",
     },
     {
-        "entity_name": "INDRAWATI NIRMAN PVT LTD",
-        "title": "Indrawati Nirman Pvt Ltd wins highway maintenance contract in Madhya Pradesh",
-        "description": ("Indrawati Nirman Pvt Ltd said it has won a three-year highway "
+        "entity_name": "SAPTAGIRI NIRMAN PVT LTD",
+        "title": "Saptagiri Nirman Pvt Ltd wins highway maintenance contract in Madhya Pradesh",
+        "description": ("Saptagiri Nirman Pvt Ltd said it has won a three-year highway "
                         "maintenance contract from the state public works department, its "
                         "largest order this fiscal year."),
-        "source": "Business Standard", "hours_ago": 30, "slug": "indrawati-contract",
+        "source": "Ledger Daily", "hours_ago": 30, "slug": "Saptagiri-contract",
     },
 ]
 

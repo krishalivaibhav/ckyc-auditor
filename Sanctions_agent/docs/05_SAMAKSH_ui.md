@@ -76,7 +76,7 @@ visually obvious. This is where an analyst sees *why*:
 ```
 CUSTOMER                          WATCHLIST (NSE/SEBI debarred)
 name  Anand Sharma                name  Anand Sharma          ✓ match
-PAN   BGJPS5517E                  PAN   ATFPS5670Q            ✗ MISMATCH -> different person
+PAN   ZZZPG1030K                  PAN   ZZZPE1028H            ✗ MISMATCH -> different person
 type  Individual                  type  Individual            ✓
 ```
 
@@ -109,7 +109,7 @@ Nobody else will build this. It's the whole thesis on one screen.
 
 | Customer | Matched | Method | Why we suppressed it |
 |---|---|---|---|
-| Anand Sharma | NSE debarred | `PAN_MISMATCH_REJECT` | PAN BGJPS5517E ≠ ATFPS5670Q → different person |
+| Anand Sharma | NSE debarred | `PAN_MISMATCH_REJECT` | PAN ZZZPG1030K ≠ ZZZPE1028H → different person |
 | Amir Khan | MHA UAPA | `ALIAS_BARE_REJECT` | Matched only the bare alias "Amir Khan" — requires corroboration |
 | Ajay Kumar | PEP + debarred | `CROSS_LIST_NO_LINK` | The two sources share zero identifiers → never auto-link |
 

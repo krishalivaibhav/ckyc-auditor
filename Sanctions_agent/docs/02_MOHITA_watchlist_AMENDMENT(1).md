@@ -182,7 +182,7 @@ To be explicit, because this is the part that matters and the DB noise obscures 
   own.** 97 of 227 UAPA aliases are bare tokens (`Salim`, `Hamza`, `Amir Khan`, `Doctor`).
   If you don't label them, Vaibhav's `ALIAS_BARE_REJECT` gate is dead code, Samaksh's
   suppression screen loses an entire row type, and we lose one of our three headline numbers.
-  Meanwhile `Hafiz Muhammad Saeed`'s 8 transliterations must stay `full_name` or the phonetic
+  Meanwhile `Hafiz Yusuf Rizvani`'s 8 transliterations must stay `full_name` or the phonetic
   matcher can never catch him. That line — never-fire vs only-way-we-catch-him — is yours to draw,
   on the one list with zero identifiers and maximum severity.
 - **Task 1d — co-accused clusters.** 11,698 rows → 1,515 orders. One Pyramid Saimira order names

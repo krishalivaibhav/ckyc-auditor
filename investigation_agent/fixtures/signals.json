@@ -5,14 +5,14 @@
     "occurred_at": "2026-07-13T09:00:00+00:00",
     "ingested_at": "2026-07-13T10:00:00+00:00",
     "source": "RSS:economictimes",
-    "source_url": "https://economictimes.indiatimes.com/markets/example-sebi-order",
+    "source_url": "https://example.com/news/article",
     "source_credibility": 0.9,
-    "headline": "SEBI bars Dipak Dwiwedi from securities market in front-running probe",
-    "raw_excerpt": "The regulator has restrained Dipak Dwiwedi from accessing the securities market, citing evidence of front-running in the matter under investigation.",
+    "headline": "SEBI bars Rohan Vashisht from securities market in front-running probe",
+    "raw_excerpt": "The regulator has restrained Rohan Vashisht from accessing the securities market, citing evidence of front-running in the matter under investigation.",
     "content_hash": "a1f9c2...",
     "story_cluster_id": "CL-0001",
     "mentioned_names": [
-      "Dipak Dwiwedi"
+      "Rohan Vashisht"
     ],
     "mentioned_orgs": [
       "SEBI"
@@ -30,14 +30,14 @@
     "occurred_at": "2026-07-13T06:00:00+00:00",
     "ingested_at": "2026-07-13T09:00:00+00:00",
     "source": "RSS:businessstandard",
-    "source_url": "https://www.business-standard.com/markets/example",
+    "source_url": "https://example.com/news/example",
     "source_credibility": 0.85,
-    "headline": "Regulator restrains Dipak Dwiwedi in front-running case",
+    "headline": "Regulator restrains Rohan Vashisht in front-running case",
     "raw_excerpt": "Same event, different outlet. Must collapse into story_cluster_id CL-0001 and produce ONE alert, not two.",
     "content_hash": "b7e0d1...",
     "story_cluster_id": "CL-0001",
     "mentioned_names": [
-      "Dipak Dwiwedi"
+      "Rohan Vashisht"
     ],
     "mentioned_orgs": [
       "SEBI"
@@ -54,14 +54,14 @@
     "occurred_at": "2026-07-06T09:00:00+00:00",
     "ingested_at": "2026-07-06T09:00:00+00:00",
     "source": "NSE_CIRCULAR",
-    "source_url": "https://archives.nseindia.com/content/circulars/CML39467.pdf",
+    "source_url": "https://example.com/circulars/CML39467.pdf",
     "source_credibility": 1.0,
-    "headline": "NSE revokes debarment: Bhanu Prasad Medabalimi",
+    "headline": "NSE revokes debarment: Suresh Babu Tallapragada",
     "raw_excerpt": "Debarment revoked per NSE circular. Risk profile must DE-ESCALATE. Zero press coverage — proves the system does not depend on news.",
     "content_hash": "c3aa77...",
     "story_cluster_id": null,
     "mentioned_names": [
-      "Bhanu Prasad Medabalimi"
+      "Suresh Babu Tallapragada"
     ],
     "mentioned_orgs": [
       "NSE"
@@ -80,12 +80,12 @@
     "source": "GDELT",
     "source_url": "https://example-news.in/appointment",
     "source_credibility": 0.6,
-    "headline": "Sumalatha Ambareesh appointed to parliamentary standing committee",
+    "headline": "Kavya Raghunath appointed to parliamentary standing committee",
     "raw_excerpt": "NOT adverse media. The triage agent must return risk_typology=[NONE]. Most naive systems flag this.",
     "content_hash": "d90f2e...",
     "story_cluster_id": "CL-0004",
     "mentioned_names": [
-      "Sumalatha Ambareesh"
+      "Kavya Raghunath"
     ],
     "mentioned_orgs": [],
     "risk_typology": [
@@ -102,12 +102,12 @@
     "source": "GDELT",
     "source_url": "https://example-news.in/retrospective",
     "source_credibility": 0.4,
-    "headline": "Five years on: the Dipak Dwiwedi case revisited",
+    "headline": "Five years on: the Rohan Vashisht case revisited",
     "raw_excerpt": "A re-report of an OLD event. is_rehash=true -> recency decay must down-weight it. Not new risk.",
     "content_hash": "e11b44...",
     "story_cluster_id": "CL-0005",
     "mentioned_names": [
-      "Dipak Dwiwedi"
+      "Rohan Vashisht"
     ],
     "mentioned_orgs": [],
     "risk_typology": [
@@ -124,12 +124,12 @@
     "source": "GDELT",
     "source_url": "https://example-news.in/terror-financing",
     "source_credibility": 0.95,
-    "headline": "NIA names Hafiz Muhammad Saeed in cross-border financing chargesheet",
+    "headline": "NIA names Hafiz Yusuf Rizvani in cross-border financing chargesheet",
     "raw_excerpt": "Article spells the name as one of eight transliterations. Phonetic matching required. UAPA gate -> CRITICAL -> always human review.",
     "content_hash": "f22c88...",
     "story_cluster_id": "CL-0006",
     "mentioned_names": [
-      "Muhammad Saeed"
+      "Yusuf Rizvani"
     ],
     "mentioned_orgs": [
       "NIA"
@@ -146,15 +146,15 @@
     "occurred_at": "2026-07-09T09:00:00+00:00",
     "ingested_at": "2026-07-09T09:00:00+00:00",
     "source": "RSS:moneycontrol",
-    "source_url": "https://www.moneycontrol.com/news/example",
+    "source_url": "https://example.com/news/example",
     "source_credibility": 0.8,
-    "headline": "Indrawati Nirman Pvt Ltd announces sudden CFO exit",
+    "headline": "Saptagiri Nirman Pvt Ltd announces sudden CFO exit",
     "raw_excerpt": "Rapid executive turnover — the PS names this explicitly as a trigger.",
     "content_hash": "091aa3...",
     "story_cluster_id": "CL-0007",
     "mentioned_names": [],
     "mentioned_orgs": [
-      "Indrawati Nirman Pvt Ltd"
+      "Saptagiri Nirman Pvt Ltd"
     ],
     "risk_typology": [
       "REGULATORY_ACTION"

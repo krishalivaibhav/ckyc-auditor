@@ -85,7 +85,7 @@ DEMO_T0 = datetime(2015, 11, 13, 9, 14, tzinfo=timezone.utc)
 def _customer(t0: datetime) -> Customer:
     return Customer(
         client_id="C9001", client_name="Vijay Mallya", client_type="Individual",
-        pan="AEZPM4433K", country="IN", sector="Aviation & Beverages",
+        pan="ZZZPU1019J", country="IN", sector="Aviation & Beverages",
         branch="Bengaluru", onboarding_date=date(2011, 4, 18),
         exposure_inr=9_200_000_000,          # ₹920 Cr consortium exposure
         last_kyc_refresh=(t0 - timedelta(days=90)).date())
@@ -107,7 +107,7 @@ def _article(sid, at, source, url, headline, excerpt, orgs, typology, severity):
 def _articles(t0: datetime) -> list[Signal]:
     return [
         _article("SIG-DEMO-001", t0, "RSS:economictimes",
-                 "https://economictimes.indiatimes.com/kingfisher-default",
+                 "https://example.com/news/article",
                  "Kingfisher Airlines defaults on ₹9,000-crore loans from "
                  "17-bank consortium led by SBI",
                  "The consortium has declared the airline's promoter-backed "
@@ -118,7 +118,7 @@ def _articles(t0: datetime) -> list[Signal]:
         # (distinct times-of-day: real wire hits don't all land at t0's clock)
         _article("SIG-DEMO-002", t0 + timedelta(days=110, hours=7, minutes=48),
                  "RSS:thehindu",
-                 "https://www.thehindu.com/mallya-leaves-india",
+                 "https://example.com/news/mallya-leaves-india",
                  "Vijay Mallya leaves India as banks move Supreme Court "
                  "over ₹9,000-crore dues",
                  "Counsel for the consortium told the Supreme Court the "
@@ -128,7 +128,7 @@ def _articles(t0: datetime) -> list[Signal]:
         # 2016-03-14 — ED registers the PMLA case over the IDBI loan.
         _article("SIG-DEMO-003", t0 + timedelta(days=122, hours=2, minutes=16),
                  "RSS:reuters",
-                 "https://www.reuters.com/ed-mallya-idbi-case",
+                 "https://example.com/news/ed-mallya-idbi-case",
                  "ED files money-laundering case against Vijay Mallya over "
                  "IDBI Bank loan",
                  "The Enforcement Directorate registered a case under PMLA "
@@ -144,7 +144,7 @@ def _sanction_entry(t_sanction: datetime) -> WatchlistEntry:
         entity_type="Individual", name="Vijay Mallya",
         aliases=["Vijay Vittal Mallya"],
         alias_quality={"Vijay Vittal Mallya": "full_name"},
-        pan="AEZPM4433K", status="active",
+        pan="ZZZPU1019J", status="active",
         order_id="SEBI/WTM/GM/EFD/2017/031",
         order_date=t_sanction.date(),
         source_url=["https://www.sebi.gov.in/enforcement/orders/mallya-debarment.pdf"],

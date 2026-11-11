@@ -14,8 +14,8 @@ def run_demo():
         print("Please build the watchlist first by running: python -m watchlist.build")
         sys.exit(1)
     
-    name = sys.argv[1] if len(sys.argv) > 1 else "Dipak Dwiwedi"
-    pan = sys.argv[2] if len(sys.argv) > 2 else "ATDPD4055C"
+    name = sys.argv[1] if len(sys.argv) > 1 else "Rohan Vashisht"
+    pan = sys.argv[2] if len(sys.argv) > 2 else "ZZZPD1027G"
     
     print(f"\nSearching for Name: '{name}' | PAN: '{pan}'")
     candidates = index.candidates(name, pan)

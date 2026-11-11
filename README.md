@@ -15,6 +15,13 @@ Flutter dashboard is the human reviewer's cockpit.
 
 ---
 
+> **About the demo data.** The watchlist is built from public lists (NSE/SEBI debarments, Parliament
+> registers, MHA UAPA). The customers, cases, SAR drafts and news articles in `fixtures/` and
+> `news_agent/data/` are invented, and the people and companies in them are fictional, with fictional
+> PANs (they start with `ZZZ`) and matching fictional rows added to the watchlist. Any resemblance to a
+> real person is coincidental. The LIVE/TEST demo's Vijay Mallya scenario replays publicly reported
+> 2015-2017 events; its article links are placeholders.
+
 ## 1. The problem (and our thesis)
 
 Banks re-check customers against watchlists **periodically** — quarterly or yearly.
@@ -25,7 +32,7 @@ person with the same name*.
 
 **Our thesis: the product is not the alerts we raise — it's the alerts we refuse to
 raise, each with a plain-language reason.** Screening India-scale names ("Amir Khan",
-"Dipak Dwiwedi") without identifier-level disambiguation is noise generation. So the
+"Rohan Vashisht") without identifier-level disambiguation is noise generation. So the
 system:
 
 1. Watches **continuously** (news agent + sanctions agent, near-real-time),
@@ -113,15 +120,15 @@ because they genuinely run on their own clocks.
 
 ## 4. The data flow, end to end (what actually happens)
 
-1. **A signal fires.** The news agent's scanner finds "SEBI debars Dipak Dwiwedi" and
+1. **A signal fires.** The news agent's scanner finds "SEBI debars Rohan Vashisht" and
    triages it adverse (benign stories — film releases, board appointments — are
    dropped at triage and never leave the agent). Or the sanctions agent sees a
    watchlist delta. Both emit JSON to the pipeline service.
 
-2. **Ambiguity adjudicates identity.** The customer book has **two** "Dipak Dwiwedi"s
+2. **Ambiguity adjudicates identity.** The customer book has **two** "Rohan Vashisht"s
    with different PANs. The ER ladder confirms the one whose PAN matches the SEBI
    order (`PAN_EXACT`, confidence 1.0) and **suppresses** the other
-   (`PAN_MISMATCH_REJECT` — "PAN ATDPD… ≠ AFOPG… → distinct entities despite
+   (`PAN_MISMATCH_REJECT` — "PAN ZZZPD… ≠ ZZZPV… → distinct entities despite
    identical name"). The suppression is recorded, not discarded — it *is* the metric.
 
 3. **Assessment → tier.** Deterministic gates (e.g. `DEBARRED_PAN_EXACT_ACTIVE`,
@@ -223,7 +230,7 @@ the backend terminal narrates every hand-off with color-coded agent tags.
 2. *(Optional, one-time)* In **Settings**, set your alert email and hit **Send test
    email** to prove the wiring.
 3. Show **LIVE** briefly: real pipeline-produced alerts, the suppression story
-   (two Dipak Dwiwedis, one confirmed, one suppressed on PAN).
+   (two Rohan Vashishts, one confirmed, one suppressed on PAN).
 4. **Toggle → TEST.** Point at the terminal:
    `[NEWS AGENT]` catches *"Kingfisher Airlines defaults on ₹9,000-crore loans"*
    (**13 Nov 2015**) → `[AMBIGUITY AGENT]` matches the name to customer C9001 (PAN,

@@ -75,7 +75,7 @@ for d in ndjson("targets_nested_mha_.json"):
                      "source_url": (p.get("sourceUrl") or [""])[:1]})
 
 # pick specific, story-carrying entries
-saeed = next(u for u in uapa if "Saeed" in u["name"] and len(u["aliases"]) > 5)
+Rizvani = next(u for u in uapa if "Rizvani" in u["name"] and len(u["aliases"]) > 5)
 deb_active = next(d for d in deb if d["status"] == "active" and d["pan"] and d["pan"][3] == "P"
                   and d["source_url"])
 deb_revoked = next(d for d in deb if d["status"] == "revoked" and d["pan"] and d["source_url"])
@@ -89,7 +89,7 @@ def alias_q(a):
         return "org_acronym"
     if len(a.split()) == 1:
         return "bare_token"
-    if a.lower() in {"amir khan", "gulshan kumar", "abdul manan", "hafiz saeed"}:
+    if a.lower() in {"amir khan", "gulshan kumar", "abdul manan", "hafiz Rizvani"}:
         return "bare_token"
     return "full_name"
 
@@ -125,11 +125,11 @@ watchlist = [
      "pan": None, "dob": rca0.get("dob"), "party": None, "status": "current",
      "order_id": None, "order_date": None, "source_url": ["https://sansad.in/ls/members"],
      "first_seen": iso(NOW - timedelta(days=600)), "last_change": iso(NOW - timedelta(days=10))},
-    {"watchlist_id": saeed["watchlist_id"], "list": "MHA_UAPA",
-     "entity_type": "Individual", "name": saeed["name"], "aliases": saeed["aliases"],
-     "alias_quality": {a: alias_q(a) for a in saeed["aliases"]},
+    {"watchlist_id": Rizvani["watchlist_id"], "list": "MHA_UAPA",
+     "entity_type": "Individual", "name": Rizvani["name"], "aliases": Rizvani["aliases"],
+     "alias_quality": {a: alias_q(a) for a in Rizvani["aliases"]},
      "pan": None, "dob": None, "party": None, "status": "active",
-     "order_id": None, "order_date": None, "source_url": saeed["source_url"],
+     "order_id": None, "order_date": None, "source_url": Rizvani["source_url"],
      "first_seen": iso(NOW - timedelta(days=800)), "last_change": iso(NOW - timedelta(days=60))},
 ]
 # + 24 more real debarred entries so blocking/indexing has something to chew on
@@ -150,15 +150,15 @@ customers = [
      "onboarding_date": "2021-03-14", "exposure_inr": 48_200_000, "last_kyc_refresh": "2024-02-01"},
     # B_FP_PAN_MISMATCH — same name, DIFFERENT PAN. must SUPPRESS.
     {"client_id": "C1002", "client_name": deb_active["name"], "client_type": "Individual",
-     "pan": "AFOPG8341M", "country": "IN", "sector": "IT Services", "branch": "Pune",
+     "pan": "ZZZPV1020K", "country": "IN", "sector": "IT Services", "branch": "Pune",
      "onboarding_date": "2022-08-02", "exposure_inr": 1_950_000, "last_kyc_refresh": "2025-01-19"},
     # F_FP_UAPA_ALIAS — bare alias. must SUPPRESS.
     {"client_id": "C1003", "client_name": "Amir Khan", "client_type": "Individual",
-     "pan": "BQMPK4471J", "country": "IN", "sector": "Import/Export", "branch": "Delhi",
+     "pan": "ZZZPK1033C", "country": "IN", "sector": "Import/Export", "branch": "Delhi",
      "onboarding_date": "2020-11-30", "exposure_inr": 7_400_000, "last_kyc_refresh": "2024-09-05"},
     # C_FP_PEP_COLLISION — on BOTH lists, zero shared identifiers. must NOT auto-link.
     {"client_id": "C1004", "client_name": pep0["name"], "client_type": "Individual",
-     "pan": "CJKPS1180Q", "country": "IN", "sector": "Real Estate", "branch": "Lucknow",
+     "pan": "ZZZPL1034D", "country": "IN", "sector": "Real Estate", "branch": "Lucknow",
      "onboarding_date": "2019-06-11", "exposure_inr": 132_000_000, "last_kyc_refresh": "2023-11-22"},
     # D_TRUE_PEP — real sitting MP. EDD, not adverse.
     {"client_id": "C1005", "client_name": pep0["name"], "client_type": "Individual",
@@ -166,10 +166,10 @@ customers = [
      "onboarding_date": "2023-01-09", "exposure_inr": 21_500_000, "last_kyc_refresh": "2025-06-30"},
     # E_TRUE_RCA — spouse of an MP. EDD_LITE.
     {"client_id": "C1006", "client_name": rca0["name"], "client_type": "Individual",
-     "pan": "AKTPR9023F", "country": "IN", "sector": "Pharma", "branch": "Bengaluru",
+     "pan": "ZZZPB1025E", "country": "IN", "sector": "Pharma", "branch": "Bengaluru",
      "onboarding_date": "2022-04-18", "exposure_inr": 6_100_000, "last_kyc_refresh": "2025-03-12"},
     # G_TRUE_UAPA — transliteration variant. must fire CRITICAL.
-    {"client_id": "C1007", "client_name": saeed["aliases"][0], "client_type": "Individual",
+    {"client_id": "C1007", "client_name": Rizvani["aliases"][0], "client_type": "Individual",
      "pan": None, "country": "IN", "sector": "NGO/Charity", "branch": "Delhi",
      "onboarding_date": "2020-02-27", "exposure_inr": 890_000, "last_kyc_refresh": "2023-08-14"},
     # A corporate hit (noisy record: "SURNAME, First" style corruption)
@@ -182,7 +182,7 @@ customers = [
      "onboarding_date": "2019-12-01", "exposure_inr": 15_300_000, "last_kyc_refresh": "2024-12-08"},
     # H_CLEAN
     {"client_id": "C1010", "client_name": "Tanvi Chatterjee", "client_type": "Individual",
-     "pan": "GBYPC8945Y", "country": "IN", "sector": "IT Services", "branch": "Kolkata",
+     "pan": "ZZZPQ1038H", "country": "IN", "sector": "IT Services", "branch": "Kolkata",
      "onboarding_date": "2023-07-21", "exposure_inr": 3_200_000, "last_kyc_refresh": "2025-07-01"},
 ]
 
@@ -190,7 +190,7 @@ customers = [
 signals = [
     {"signal_id": "SIG-0001", "signal_type": "ADVERSE_MEDIA",
      "occurred_at": iso(NOW - timedelta(days=2)), "ingested_at": iso(NOW - timedelta(days=2, hours=-1)),
-     "source": "RSS:economictimes", "source_url": "https://economictimes.indiatimes.com/markets/example-sebi-order",
+     "source": "RSS:economictimes", "source_url": "https://example.com/news/article",
      "source_credibility": 0.9,
      "headline": f"SEBI bars {deb_active['name']} from securities market in front-running probe",
      "raw_excerpt": f"The regulator has restrained {deb_active['name']} from accessing the securities "
@@ -201,7 +201,7 @@ signals = [
      "severity": 0.82, "is_rehash": False},
     {"signal_id": "SIG-0002", "signal_type": "ADVERSE_MEDIA",
      "occurred_at": iso(NOW - timedelta(days=2, hours=3)), "ingested_at": iso(NOW - timedelta(days=2)),
-     "source": "RSS:businessstandard", "source_url": "https://www.business-standard.com/markets/example",
+     "source": "RSS:businessstandard", "source_url": "https://example.com/news/example",
      "source_credibility": 0.85,
      "headline": f"Regulator restrains {deb_active['name']} in front-running case",
      "raw_excerpt": "Same event, different outlet. Must collapse into story_cluster_id CL-0001 "
@@ -243,15 +243,15 @@ signals = [
      "occurred_at": iso(NOW - timedelta(days=4)), "ingested_at": iso(NOW - timedelta(days=4)),
      "source": "GDELT", "source_url": "https://example-news.in/terror-financing",
      "source_credibility": 0.95,
-     "headline": f"NIA names {saeed['name']} in cross-border financing chargesheet",
+     "headline": f"NIA names {Rizvani['name']} in cross-border financing chargesheet",
      "raw_excerpt": "Article spells the name as one of eight transliterations. Phonetic "
                     "matching required. UAPA gate -> CRITICAL -> always human review.",
      "content_hash": "f22c88...", "story_cluster_id": "CL-0006",
-     "mentioned_names": [saeed["aliases"][0]], "mentioned_orgs": ["NIA"],
+     "mentioned_names": [Rizvani["aliases"][0]], "mentioned_orgs": ["NIA"],
      "risk_typology": ["TERRORISM"], "severity": 0.98, "is_rehash": False},
     {"signal_id": "SIG-0007", "signal_type": "EXEC_TURNOVER",
      "occurred_at": iso(NOW - timedelta(days=6)), "ingested_at": iso(NOW - timedelta(days=6)),
-     "source": "RSS:moneycontrol", "source_url": "https://www.moneycontrol.com/news/example",
+     "source": "RSS:moneycontrol", "source_url": "https://example.com/news/example",
      "source_credibility": 0.8,
      "headline": f"{deb_corp['name']} announces sudden CFO exit",
      "raw_excerpt": "Rapid executive turnover — the PS names this explicitly as a trigger.",
@@ -279,11 +279,11 @@ candidates = [
     {"candidate_id": "CAND-002", "client_id": "C1002", "watchlist_id": deb_active["watchlist_id"],
      "signal_id": "SIG-0001", "match_method": "PAN_MISMATCH_REJECT", "confidence": 0.0,
      "decision": "REJECTED",
-     "rejection_reason": f"PAN AFOPG8341M != {deb_active['pan']} -> distinct entities despite "
+     "rejection_reason": f"PAN ZZZPV1020K != {deb_active['pan']} -> distinct entities despite "
                          f"identical name",
-     "features": {"name_similarity": 1.0, "customer_pan": "AFOPG8341M",
+     "features": {"name_similarity": 1.0, "customer_pan": "ZZZPV1020K",
                   "watchlist_pan": deb_active["pan"]}},
-    {"candidate_id": "CAND-003", "client_id": "C1003", "watchlist_id": saeed["watchlist_id"],
+    {"candidate_id": "CAND-003", "client_id": "C1003", "watchlist_id": Rizvani["watchlist_id"],
      "signal_id": "SIG-0008", "match_method": "ALIAS_BARE_REJECT", "confidence": 0.05,
      "decision": "REJECTED",
      "rejection_reason": "Matched only the bare alias 'Amir Khan' (alias_quality=bare_token). "
@@ -305,13 +305,13 @@ candidates = [
      "signal_id": None, "match_method": "NAME_EXACT", "confidence": 0.71,
      "decision": "CONFIRMED", "rejection_reason": None,
      "features": {"relationship": "spouse", "source": "sabha_family_graph"}},
-    {"candidate_id": "CAND-007", "client_id": "C1007", "watchlist_id": saeed["watchlist_id"],
+    {"candidate_id": "CAND-007", "client_id": "C1007", "watchlist_id": Rizvani["watchlist_id"],
      "signal_id": "SIG-0006", "match_method": "PHONETIC", "confidence": 0.88,
      "decision": "AMBIGUOUS", "rejection_reason": None,
      "features": {"double_metaphone": "HFSMTST", "jaro_winkler": 0.91,
-                  "matched_alias": saeed["aliases"][0], "alias_quality": "full_name",
+                  "matched_alias": Rizvani["aliases"][0], "alias_quality": "full_name",
                   "note": "no identifier exists on the UAPA list -> corroboration required"}},
-    {"candidate_id": "CAND-008", "client_id": "C1007", "watchlist_id": saeed["watchlist_id"],
+    {"candidate_id": "CAND-008", "client_id": "C1007", "watchlist_id": Rizvani["watchlist_id"],
      "signal_id": "SIG-0006", "match_method": "LLM_ADJUDICATED", "confidence": 0.93,
      "decision": "CONFIRMED", "rejection_reason": None,
      "features": {"corroboration": "article co-mentions NIA chargesheet + designated org",
@@ -352,7 +352,7 @@ assessments = [
          ev(2, "NEWS_ARTICLE", "CONFIRMED",
             "Adverse media reports the subject was restrained by SEBI in a front-running probe.",
             "Economic Times",
-            "https://economictimes.indiatimes.com/markets/example-sebi-order",
+            "https://example.com/news/article",
             "The regulator has restrained the subject from accessing the securities market.", 0.9),
          ev(3, "REGISTRY_RECORD", "MISSING",
             "Directorship history could not be retrieved; MCA registry lookup returned no record.",
@@ -371,7 +371,7 @@ assessments = [
             "Customer name is identical to a debarred entity, but the PANs differ.",
             "NSE debarred entities register",
             deb_active["source_url"][0] if deb_active["source_url"] else "",
-            f"Customer PAN AFOPG8341M vs watchlist PAN {deb_active['pan']}.", 0.2)],
+            f"Customer PAN ZZZPV1020K vs watchlist PAN {deb_active['pan']}.", 0.2)],
      "explanation": "No alert raised. Although the customer's name is identical to a debarred "
                     "entity, the PANs differ [EV-010], which establishes them as distinct "
                     "persons. Suppressed with reason logged."},
@@ -381,11 +381,11 @@ assessments = [
      "contributing_signals": ["SIG-0006"], "contributing_candidates": ["CAND-007", "CAND-008"],
      "evidence": [
          ev(20, "WATCHLIST_ENTRY", "CONFIRMED",
-            f"Name is a listed transliteration of {saeed['name']}, designated under the Fourth "
+            f"Name is a listed transliteration of {Rizvani['name']}, designated under the Fourth "
             f"Schedule of the UAPA, 1967.",
             "MHA UAPA Fourth Schedule",
-            saeed["source_url"][0] if saeed["source_url"] else "",
-            f"Aliases on record: {'; '.join(saeed['aliases'][:4])}"),
+            Rizvani["source_url"][0] if Rizvani["source_url"] else "",
+            f"Aliases on record: {'; '.join(Rizvani['aliases'][:4])}"),
          ev(21, "NEWS_ARTICLE", "CORRELATED",
             "Adverse media co-mentions the subject with the designating authority.",
             "GDELT", "https://example-news.in/terror-financing",
@@ -420,7 +420,7 @@ assessments = [
          ev(40, "WATCHLIST_ENTRY", "CORRELATED",
             "Customer name matches a bare-token alias on the UAPA list.",
             "MHA UAPA Fourth Schedule",
-            saeed["source_url"][0] if saeed["source_url"] else "",
+            Rizvani["source_url"][0] if Rizvani["source_url"] else "",
             "'Amir Khan' is one of 97 single-token aliases; it is also an extremely common "
             "Indian name.", 0.05)],
      "explanation": "No alert raised. The only match was to the bare alias 'Amir Khan' [EV-040], "
@@ -493,7 +493,7 @@ cases = [
           "summary": "PAN exact-match to an active NSE/SEBI debarment. Gate fired.",
           "evidence_ids": ["EV-001"], "tier_before": "NONE", "tier_after": "HIGH",
           # deterministic PAN-exact match: full confidence, the dominant score contribution.
-          "score_delta": 0.51, "dedup_key": "PAN:ATDPD4055C", "resolution_confidence": 1.0},
+          "score_delta": 0.51, "dedup_key": "PAN:ZZZPD1027G", "resolution_confidence": 1.0},
          {"at": iso(NOW - timedelta(days=1)), "kind": "SAR",
           "summary": "SAR drafted. Citation coverage 96%. 2 claims excluded as unverifiable.",
           "evidence_ids": ["EV-001", "EV-002", "EV-003"],
@@ -555,7 +555,7 @@ for i, (actor, action, ot, oid, rat) in enumerate([
     ("agent:er", "RESOLVED", "Candidate", "CAND-001",
      "PAN exact match. Confidence 1.00. No LLM invoked."),
     ("agent:er", "SUPPRESSED", "Candidate", "CAND-002",
-     f"PAN AFOPG8341M != {deb_active['pan']}. Distinct entities. No alert raised."),
+     f"PAN ZZZPV1020K != {deb_active['pan']}. Distinct entities. No alert raised."),
     ("agent:er", "SUPPRESSED", "Candidate", "CAND-003",
      "Bare-token alias 'Amir Khan' only. Requires corroboration."),
     ("agent:er", "SUPPRESSED", "Candidate", "CAND-004",

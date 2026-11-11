@@ -95,7 +95,7 @@ The `bare_token` bucket includes: `Salim` `Salman` `Hamza` `Zakir` `Ismail` `Sul
 > Vaibhav's resolver enforces "bare tokens never trigger alone" — **but only if you label them.**
 > If you get this wrong, his alias gate cannot work and we lose one of our three headline numbers.
 
-Meanwhile the *real* matching challenge is the opposite end: `Hafiz Muhammad Saeed` carries
+Meanwhile the *real* matching challenge is the opposite end: `Hafiz Yusuf Rizvani` carries
 8 transliterations. Keep every one of those as `full_name` — Vaibhav's phonetic matcher needs them.
 
 ### 1d. Co-accused clusters (free relationship graph, no synthesis)

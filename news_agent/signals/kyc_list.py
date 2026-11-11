@@ -28,7 +28,7 @@ SHARED_CUSTOMERS_JSON = os.getenv(
 
 def seed_from_shared_dataset() -> bool:
     """Load the watchlist from the shared customer book. Duplicate names (two
-    clients named 'Dipak Dwiwedi') collapse into ONE watched name here — the
+    clients named 'Rohan Vashisht') collapse into ONE watched name here — the
     ambiguity agent downstream is what splits them back into distinct clients.
     Returns False (caller falls back to seed_defaults) if the file is missing."""
     path = Path(SHARED_CUSTOMERS_JSON)

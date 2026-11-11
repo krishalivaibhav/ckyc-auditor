@@ -22,9 +22,9 @@
         "evidence_id": "EV-001",
         "kind": "WATCHLIST_ENTRY",
         "status": "CONFIRMED",
-        "claim": "PAN ATDPD4055C exactly matches an active NSE/SEBI debarment order.",
+        "claim": "PAN ZZZPD1027G exactly matches an active NSE/SEBI debarment order.",
         "source_name": "NSE debarred entities register",
-        "source_url": "https://archives.nseindia.com/content/circulars/INVG59340.pdf",
+        "source_url": "https://example.com/circulars/INVG59340.pdf",
         "excerpt": "Order Particulars: SEBI Interim Order in the matter of Stock Recommendations using YouTube in the scrip of Sadhna Broadcast Limited",
         "retrieved_at": "2026-07-15T09:00:00+00:00",
         "confidence": 1.0
@@ -34,8 +34,8 @@
         "kind": "NEWS_ARTICLE",
         "status": "CONFIRMED",
         "claim": "Adverse media reports the subject was restrained by SEBI in a front-running probe.",
-        "source_name": "Economic Times",
-        "source_url": "https://economictimes.indiatimes.com/markets/example-sebi-order",
+        "source_name": "Metro Business Wire",
+        "source_url": "https://example.com/news/article",
         "excerpt": "The regulator has restrained the subject from accessing the securities market.",
         "retrieved_at": "2026-07-15T09:00:00+00:00",
         "confidence": 0.9
@@ -63,7 +63,7 @@
     "score": 0.0,
     "gates_fired": [],
     "suppressions": [
-      "PAN_MISMATCH:NK-H6CX9FSjNZiQZp5KdTmBRX"
+      "PAN_MISMATCH:NK-FICTIONAL0003"
     ],
     "contributing_signals": [
       "SIG-0001"
@@ -78,8 +78,8 @@
         "status": "CORRELATED",
         "claim": "Customer name is identical to a debarred entity, but the PANs differ.",
         "source_name": "NSE debarred entities register",
-        "source_url": "https://archives.nseindia.com/content/circulars/INVG59340.pdf",
-        "excerpt": "Customer PAN AFOPG8341M vs watchlist PAN ATDPD4055C.",
+        "source_url": "https://example.com/circulars/INVG59340.pdf",
+        "excerpt": "Customer PAN ZZZPV1020K vs watchlist PAN ZZZPD1027G.",
         "retrieved_at": "2026-07-15T09:00:00+00:00",
         "confidence": 0.2
       }
@@ -109,10 +109,10 @@
         "evidence_id": "EV-020",
         "kind": "WATCHLIST_ENTRY",
         "status": "CONFIRMED",
-        "claim": "Name is a listed transliteration of Hafiz Muhammad Saeed, designated under the Fourth Schedule of the UAPA, 1967.",
+        "claim": "Name is a listed transliteration of Hafiz Yusuf Rizvani, designated under the Fourth Schedule of the UAPA, 1967.",
         "source_name": "MHA UAPA Fourth Schedule",
         "source_url": "https://xn--i1b5bzbybhfo5c8b4bxh.xn--11b7cb3a6a.xn--h2brj9c/sites/default/files/2024-12/2SLNO01T04_MAULANAMASOODAZHARTODAWOODIBRAHIM_18122024.pdf",
-        "excerpt": "Aliases on record: Muhammad Saeed; Hafiz Muhammad; Hafez Mohammad Saeed; Hafiz Mohaddad Sayid",
+        "excerpt": "Aliases on record: Yusuf Rizvani; Hafiz Muhammad; Hafez Mohammad Rizvani; Hafiz Mohaddad Sayid",
         "retrieved_at": "2026-07-15T09:00:00+00:00",
         "confidence": 1.0
       },
@@ -165,7 +165,7 @@
         "status": "CONFIRMED",
         "claim": "NSE has revoked the debarment order against this subject.",
         "source_name": "NSE circular (revocation)",
-        "source_url": "https://archives.nseindia.com/content/circulars/CML39467.pdf",
+        "source_url": "https://example.com/circulars/CML39467.pdf",
         "excerpt": "Debarment revoked per NSE circular.",
         "retrieved_at": "2026-07-15T09:00:00+00:00",
         "confidence": 1.0

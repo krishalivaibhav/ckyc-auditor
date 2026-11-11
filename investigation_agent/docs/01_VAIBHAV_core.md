@@ -79,7 +79,7 @@ to `LegalEntity` — no person/company distinction at all. PAN gives it back to 
 ### Rung 3 — PAN mismatch  →  `PAN_MISMATCH_REJECT`
 Both sides have a PAN and they **differ** → different person. Full stop.
 This is the gate that kills bucket `B_FP_PAN_MISMATCH` (60 traps).
-`rejection_reason = "PAN AKHPG5185D != AFOPG8341M -> distinct entities"`
+`rejection_reason = "PAN ZZZPX1022B != ZZZPV1020K -> distinct entities"`
 
 ### Rung 4 — Alias-quality gate  →  `ALIAS_BARE_REJECT`
 A match that rests **only** on a `bare_token` alias is not a match.
@@ -100,7 +100,7 @@ co-accused order. This kills bucket `C_FP_PEP_COLLISION` (30 traps).
 
 ### Rung 6 — Phonetic / fuzzy (this is where fuzzy matching *earns* its place)
 Only reached when there is no PAN on one side. Two distinct jobs:
-- **Transliteration** (UAPA): `Hafiz Muhammad Saeed` has 8 spellings — `Hafez Mohammad Saeed`,
+- **Transliteration** (UAPA): `Hafiz Yusuf Rizvani` has 8 spellings — `Hafez Mohammad Rizvani`,
   `Hafiz Mohaddad Sayid`, `Hafiz Mohammad Sayeed`… Use **Double Metaphone** + Jaro-Winkler.
   This is the *only* place in the system where phonetic matching is justified. Say so.
 - **Record noise** (our messy book): typos, `SURNAME, First`, initials, dropped middle names.

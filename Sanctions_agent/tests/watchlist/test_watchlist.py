@@ -12,7 +12,7 @@ def test_normalization_inverts_comma_name_and_drops_title():
 def test_alias_quality_protects_ambiguous_uapa_aliases():
     assert classify_alias("Amir Khan") == "bare_token"
     assert classify_alias("PREPAK") == "org_acronym"
-    assert classify_alias("Hafiz Muhammad Saeed") == "full_name"
+    assert classify_alias("Hafiz Yusuf Rizvani") == "full_name"
 
 
 def test_index_uses_pan_and_does_not_expand_bare_aliases():

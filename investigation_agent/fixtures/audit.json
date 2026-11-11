@@ -41,7 +41,7 @@
     "object_id": "CAND-002",
     "before": null,
     "after": null,
-    "rationale": "PAN AFOPG8341M != ATDPD4055C. Distinct entities. No alert raised."
+    "rationale": "PAN ZZZPV1020K != ZZZPD1027G. Distinct entities. No alert raised."
   },
   {
     "audit_id": "AUD-005",

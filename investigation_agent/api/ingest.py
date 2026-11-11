@@ -50,7 +50,7 @@ def _customers() -> list[Customer]:
 def find_customers(name: str) -> list[Customer]:
     """Resolve a bare entity name from the news agent against the customer book.
     Normalised exact match — the shared dataset means every watched name IS a
-    customer name. Returns ALL matches: 'Dipak Dwiwedi' is two distinct clients,
+    customer name. Returns ALL matches: 'Rohan Vashisht' is two distinct clients,
     and each must be adjudicated separately (that ambiguity is the product)."""
     target = normalize(name)
     return [c for c in _customers() if normalize(c.client_name) == target] if target else []
